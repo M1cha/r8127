@@ -304,9 +304,7 @@ static int rtl8127_set_speed(struct net_device *dev, u8 autoneg, u32 speed, u8 d
 static bool rtl8127_set_phy_mcu_patch_request(struct rtl8127_private *tp);
 static bool rtl8127_clear_phy_mcu_patch_request(struct rtl8127_private *tp);
 
-#ifdef CONFIG_R8127_NAPI
 static int rtl8127_poll(napi_ptr napi, napi_budget budget);
-#endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
 static void rtl8127_reset_task(void *_data);
@@ -10583,7 +10581,6 @@ static const struct net_device_ops rtl8127_netdev_ops = {
 #endif
 
 
-#ifdef  CONFIG_R8127_NAPI
 
 static int rtl8127_poll(napi_ptr napi, napi_budget budget)
 {
@@ -10798,7 +10795,6 @@ static void rtl8127_del_napi(struct rtl8127_private *tp)
                 RTL_NAPI_DEL((&tp->r8127napi[i]));
 #endif
 }
-#endif //CONFIG_R8127_NAPI
 
 static void rtl8127_init_napi(struct rtl8127_private *tp)
 {
@@ -10806,7 +10802,6 @@ static void rtl8127_init_napi(struct rtl8127_private *tp)
 
         for (i=0; i<tp->irq_nvecs; i++) {
                 struct r8127_napi *r8127napi = &tp->r8127napi[i];
-#ifdef CONFIG_R8127_NAPI
                 int (*poll)(struct napi_struct *, int);
 
                 poll = rtl8127_poll;
@@ -10847,7 +10842,6 @@ static void rtl8127_init_napi(struct rtl8127_private *tp)
                 }
 
                 RTL_NAPI_CONFIG(tp->dev, r8127napi, poll, R8127_NAPI_WEIGHT);
-#endif
 
                 r8127napi->priv = tp;
                 r8127napi->index = i;
@@ -11058,9 +11052,7 @@ err_out:
 
                 tp->tally_vaddr = NULL;
         }
-#ifdef  CONFIG_R8127_NAPI
         rtl8127_del_napi(tp);
-#endif
         rtl8127_disable_msi(pdev, tp);
 
 err_out_1:
@@ -11092,9 +11084,7 @@ rtl8127_remove_one(struct pci_dev *pdev)
 #endif //ENABLE_R8127_SYSFS
 
         unregister_netdev(dev);
-#ifdef  CONFIG_R8127_NAPI
         rtl8127_del_napi(tp);
-#endif
         rtl8127_disable_msi(pdev, tp);
 #ifdef ENABLE_R8127_PROCFS
         rtl8127_proc_remove(dev);
@@ -11316,9 +11306,7 @@ int rtl8127_open(struct net_device *dev)
 
         pci_set_master(tp->pci_dev);
 
-#ifdef  CONFIG_R8127_NAPI
         rtl8127_enable_napi(tp);
-#endif
 
         rtl8127_exit_oob(dev);
 
@@ -11829,9 +11817,7 @@ rtl8127_change_mtu(struct net_device *dev,
         if (ret < 0)
                 goto err_out;
 
-#ifdef CONFIG_R8127_NAPI
         rtl8127_enable_napi(tp);
-#endif//CONFIG_R8127_NAPI
 
         if (tp->link_ok(dev))
                 rtl8127_link_on_patch(dev);
@@ -12466,9 +12452,7 @@ _rtl8127_wait_for_quiescence(struct net_device *dev)
         struct rtl8127_private *tp = netdev_priv(dev);
 
         /* Wait for any pending NAPI task to complete */
-#ifdef CONFIG_R8127_NAPI
         rtl8127_disable_napi(tp);
-#endif//CONFIG_R8127_NAPI
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,5,67)
         /* Give a racing hard_start_xmit a few cycles to complete. */
@@ -12490,9 +12474,7 @@ rtl8127_wait_for_quiescence(struct net_device *dev)
 
         _rtl8127_wait_for_quiescence(dev);
 
-#ifdef CONFIG_R8127_NAPI
         rtl8127_enable_napi(tp);
-#endif//CONFIG_R8127_NAPI
 }
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
@@ -12545,9 +12527,7 @@ static void rtl8127_reset_task(struct work_struct *work)
         rtl8127_ptp_reset(tp);
 #endif
 
-#ifdef CONFIG_R8127_NAPI
         rtl8127_enable_napi(tp);
-#endif //CONFIG_R8127_NAPI
 
         if (tp->resume_not_chg_speed) {
                 _rtl8127_check_link_status(dev, R8127_LINK_STATE_UNKNOWN);
@@ -13548,14 +13528,10 @@ rtl8127_rx_skb(struct rtl8127_private *tp,
                struct sk_buff *skb,
                u32 ring_index)
 {
-#ifdef CONFIG_R8127_NAPI
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29)
         netif_receive_skb(skb);
 #else
         napi_gro_receive(&tp->r8127napi[ring_index].napi, skb);
-#endif
-#else
-        netif_rx(skb);
 #endif
 }
 
@@ -14021,7 +13997,6 @@ static irqreturn_t rtl8127_interrupt(int irq, void *dev_instance)
                         rtl8127_schedule_dash_work(tp);
 #endif
 
-#ifdef CONFIG_R8127_NAPI
                 if (status & tp->intr_mask || tp->keep_intr_cnt-- > 0) {
                         if (status & tp->intr_mask)
                                 tp->keep_intr_cnt = RTK_KEEP_INTERRUPT_COUNT;
@@ -14035,35 +14010,6 @@ static irqreturn_t rtl8127_interrupt(int irq, void *dev_instance)
                         tp->keep_intr_cnt = RTK_KEEP_INTERRUPT_COUNT;
                         rtl8127_switch_to_hw_interrupt(tp);
                 }
-#else
-                if (status & tp->intr_mask || tp->keep_intr_cnt-- > 0) {
-                        u32 budget = ~(u32)0;
-                        int i;
-
-                        if (status & tp->intr_mask)
-                                tp->keep_intr_cnt = RTK_KEEP_INTERRUPT_COUNT;
-
-                        for (i = 0; i < tp->num_tx_rings; i++)
-                                rtl8127_tx_interrupt(&tp->tx_ring[i], ~(u32)0);
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
-                        rtl8127_rx_interrupt(dev, tp, &tp->rx_ring[0], &budget);
-#else
-                        rtl8127_rx_interrupt(dev, tp, &tp->rx_ring[0], budget);
-#endif	//LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
-
-#ifdef ENABLE_DASH_SUPPORT
-                        if ((status & ISRIMR_V6_LAYER2_INTR_STS) &&
-                            rtl8127_check_dash_interrupt(tp))
-                                rtl8127_schedule_dash_work(tp);
-#endif
-
-                        rtl8127_switch_to_timer_interrupt(tp);
-                } else {
-                        tp->keep_intr_cnt = RTK_KEEP_INTERRUPT_COUNT;
-                        rtl8127_switch_to_hw_interrupt(tp);
-                }
-#endif
         } while (false);
 
         return IRQ_RETVAL(handled);
@@ -14079,9 +14025,6 @@ static irqreturn_t rtl8127_interrupt_msix(int irq, void *dev_instance)
         struct rtl8127_private *tp = r8127napi->priv;
         struct net_device *dev = tp->dev;
         int message_id = r8127napi->index;
-#ifndef CONFIG_R8127_NAPI
-        u32 budget = ~(u32)0;
-#endif
 
         do {
                 if (!tp->irq_tbl[message_id].requested)
@@ -14105,7 +14048,6 @@ static irqreturn_t rtl8127_interrupt_msix(int irq, void *dev_instance)
                 }
 #endif
 
-#ifdef CONFIG_R8127_NAPI
                 if (likely(RTL_NETIF_RX_SCHEDULE_PREP(dev, &r8127napi->napi))) {
                         rtl8127_disable_hw_layered_interrupt(tp, message_id);
                         __RTL_NETIF_RX_SCHEDULE(dev, &r8127napi->napi);
@@ -14113,24 +14055,6 @@ static irqreturn_t rtl8127_interrupt_msix(int irq, void *dev_instance)
                         printk(KERN_INFO "%s: interrupt message id %d in poll_msix\n",
                                dev->name, message_id);
                 rtl8127_clear_hw_isr_v2(tp, message_id);
-#else
-                rtl8127_disable_hw_layered_interrupt(tp, message_id);
-
-                rtl8127_clear_hw_isr_v2(tp, message_id);
-
-                rtl8127_tx_interrupt_with_vector(tp, message_id, ~(u32)0);
-
-                if (message_id < tp->num_rx_rings) {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
-                        rtl8127_rx_interrupt(dev, tp, &tp->rx_ring[message_id], &budget);
-#else
-                        rtl8127_rx_interrupt(dev, tp, &tp->rx_ring[message_id], budget);
-#endif	//LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
-                }
-
-                rtl8127_enable_hw_layered_interrupt(tp, message_id);
-#endif
-
         } while (false);
 
         return IRQ_HANDLED;

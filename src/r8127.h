@@ -354,21 +354,17 @@ do { \
 
 #define RTL_ALLOC_SKB_INTR(napi, length) dev_alloc_skb(length)
 #define R8127_USE_NAPI_ALLOC_SKB 0
-#ifdef CONFIG_R8127_NAPI
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)
 #undef RTL_ALLOC_SKB_INTR
 #define RTL_ALLOC_SKB_INTR(napi, length) napi_alloc_skb(napi, length)
 #undef R8127_USE_NAPI_ALLOC_SKB
 #define R8127_USE_NAPI_ALLOC_SKB 1
 #endif
-#endif
 
 #define RTL_BUILD_SKB_INTR(data, frag_size) build_skb(data, frag_size)
-#ifdef CONFIG_R8127_NAPI
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,12,0)
 #undef RTL_BUILD_SKB_INTR
 #define RTL_BUILD_SKB_INTR(data, frag_size) napi_build_skb(data, frag_size)
-#endif
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,6,0)
@@ -582,11 +578,7 @@ static inline u32 rtl8127_ethtool_adv_to_mmd_eee_adv_cap2_t(u32 adv)
 #endif
 #define R8127_RX_ALIGN        NET_IP_ALIGN
 
-#ifdef CONFIG_R8127_NAPI
 #define NAPI_SUFFIX "-NAPI"
-#else
-#define NAPI_SUFFIX ""
-#endif
 
 #if defined(ENABLE_REALWOW_SUPPORT)
 #define REALWOW_SUFFIX "-REALWOW"
@@ -636,21 +628,11 @@ This is free software, and you are welcome to redistribute it under certain cond
 #define R8127_MSG_DEFAULT \
     (NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_IFUP | NETIF_MSG_IFDOWN)
 
-#ifdef CONFIG_R8127_NAPI
 #define rtl8127_rx_hwaccel_skb      vlan_hwaccel_receive_skb
 #define rtl8127_rx_quota(count, quota)  min(count, quota)
-#else
-#define rtl8127_rx_hwaccel_skb      vlan_hwaccel_rx
-#define rtl8127_rx_quota(count, quota)  count
-#endif
 
-#ifdef CONFIG_R8127_NAPI
 #define r8127_spin_lock(lock, flags)  (void)flags;spin_lock_bh(lock)
 #define r8127_spin_unlock(lock, flags)  (void)flags;spin_unlock_bh(lock)
-#else
-#define r8127_spin_lock(lock, flags)  spin_lock_irqsave(lock, flags)
-#define r8127_spin_unlock(lock, flags)  spin_unlock_irqrestore(lock, flags)
-#endif
 
 /* MAC address length */
 #ifndef MAC_ADDR_LEN
@@ -980,7 +962,6 @@ typedef int napi_budget;
 #endif //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
 
 /*****************************************************************************/
-#ifdef CONFIG_R8127_NAPI
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0)
 #define RTL_NAPI_CONSUME_SKB_ANY(skb, budget)          napi_consume_skb(skb, budget)
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0)
@@ -988,13 +969,6 @@ typedef int napi_budget;
 #else
 #define RTL_NAPI_CONSUME_SKB_ANY(skb, budget)          dev_kfree_skb_any(skb);
 #endif  //LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0)
-#else   //CONFIG_R8127_NAPI
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0)
-#define RTL_NAPI_CONSUME_SKB_ANY(skb, budget)          dev_consume_skb_any(skb);
-#else
-#define RTL_NAPI_CONSUME_SKB_ANY(skb, budget)          dev_kfree_skb_any(skb);
-#endif
-#endif  //CONFIG_R8127_NAPI
 
 /*****************************************************************************/
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,9)
@@ -2287,10 +2261,8 @@ struct rtl8127_rx_ring {
 };
 
 struct r8127_napi {
-#ifdef CONFIG_R8127_NAPI
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
         struct napi_struct napi;
-#endif
 #endif
         void* priv;
         int index;
