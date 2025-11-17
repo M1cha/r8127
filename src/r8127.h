@@ -2731,10 +2731,6 @@ struct rtl8127_private {
 
         u8 ring_lib_enabled;
 
-        const char *fw_name;
-        struct rtl8127_fw *rtl_fw;
-        u32 ocp_base;
-
         //Dash+++++++++++++++++
         u8 HwSuppDashVer;
         u8 DASH;
