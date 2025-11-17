@@ -248,12 +248,6 @@ static inline bool dev_page_is_reusable(struct page *page)
 }
 #endif
 
-/*
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0)&& !defined(ENABLE_LIB_SUPPORT)
-#define RTL_USE_NEW_INTR_API
-#endif
-*/
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
 #define dma_map_page_attrs(dev, page, offset, size, dir, attrs) \
 	dma_map_page(dev, page, offset, size, dir)

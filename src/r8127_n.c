@@ -10472,18 +10472,11 @@ static int rtl8127_try_msi(struct rtl8127_private *tp)
         tp->max_irq_nvecs = 1;
 #endif
 
-#if defined(RTL_USE_NEW_INTR_API)
         if ((nvecs = pci_alloc_irq_vectors(pdev, tp->min_irq_nvecs, tp->max_irq_nvecs, PCI_IRQ_MSIX)) > 0)
                 msi |= RTL_FEATURE_MSIX;
         else if ((nvecs = pci_alloc_irq_vectors(pdev, 1, 1, PCI_IRQ_ALL_TYPES)) > 0 &&
                  pci_dev_msi_enabled(pdev))
                 msi |= RTL_FEATURE_MSI;
-#elif LINUX_VERSION_CODE > KERNEL_VERSION(2,6,13)
-        if ((nvecs = rtl8127_enable_msix(tp)) > 0)
-                msi |= RTL_FEATURE_MSIX;
-        else if (!pci_enable_msi(pdev))
-                msi |= RTL_FEATURE_MSI;
-#endif
         if (!(msi & (RTL_FEATURE_MSI | RTL_FEATURE_MSIX)))
                 dev_info(&pdev->dev, "no MSI/MSI-X. Back to INTx.\n");
 
@@ -10499,25 +10492,14 @@ static int rtl8127_try_msi(struct rtl8127_private *tp)
 
 static void rtl8127_disable_msi(struct pci_dev *pdev, struct rtl8127_private *tp)
 {
-#if defined(RTL_USE_NEW_INTR_API)
         if (tp->features & (RTL_FEATURE_MSI | RTL_FEATURE_MSIX))
                 pci_free_irq_vectors(pdev);
-#elif LINUX_VERSION_CODE > KERNEL_VERSION(2,6,13)
-        if (tp->features & (RTL_FEATURE_MSIX))
-                pci_disable_msix(pdev);
-        else if (tp->features & (RTL_FEATURE_MSI))
-                pci_disable_msi(pdev);
-#endif
         tp->features &= ~(RTL_FEATURE_MSI | RTL_FEATURE_MSIX);
 }
 
 static int rtl8127_get_irq(struct pci_dev *pdev)
 {
-#if defined(RTL_USE_NEW_INTR_API)
         return pci_irq_vector(pdev, 0);
-#else
-        return pdev->irq;
-#endif
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0)
@@ -11172,11 +11154,7 @@ static void rtl8127_free_irq(struct rtl8127_private *tp)
 
                 if (irq->requested) {
                         irq->requested = 0;
-#if defined(RTL_USE_NEW_INTR_API)
                         pci_free_irq(tp->pci_dev, i, r8127napi);
-#else
-                        free_irq(irq->vector, r8127napi);
-#endif
                 }
         }
 }
@@ -11190,7 +11168,6 @@ static int rtl8127_alloc_irq(struct rtl8127_private *tp)
         int i = 0;
         const int len = sizeof(tp->irq_tbl[0].name);
 
-#if defined(RTL_USE_NEW_INTR_API)
         for (i=0; i<tp->irq_nvecs; i++) {
                 irq = &tp->irq_tbl[i];
                 if (tp->features & RTL_FEATURE_MSIX &&
@@ -11209,39 +11186,6 @@ static int rtl8127_alloc_irq(struct rtl8127_private *tp)
                 irq->vector = pci_irq_vector(tp->pci_dev, i);
                 irq->requested = 1;
         }
-#else
-        unsigned long irq_flags = 0;
-#ifdef ENABLE_LIB_SUPPORT
-        irq_flags |= IRQF_NO_SUSPEND;
-#endif
-        if (tp->features & RTL_FEATURE_MSIX &&
-            tp->HwCurrIsrVer > 1) {
-                for (i=0; i<tp->irq_nvecs; i++) {
-                        irq = &tp->irq_tbl[i];
-                        irq->handler = rtl8127_interrupt_msix;
-                        r8127napi = &tp->r8127napi[i];
-                        snprintf(irq->name, len, "%s-%d", dev->name, i);
-                        rc = request_irq(irq->vector, irq->handler, irq_flags, irq->name, r8127napi);
-
-                        if (rc)
-                                break;
-
-                        irq->requested = 1;
-                }
-        } else {
-                irq = &tp->irq_tbl[0];
-                irq->handler = rtl8127_interrupt;
-                r8127napi = &tp->r8127napi[0];
-                snprintf(irq->name, len, "%s-0", dev->name);
-                if (!(tp->features & RTL_FEATURE_MSIX))
-                        irq->vector = dev->irq;
-                irq_flags |= (tp->features & (RTL_FEATURE_MSI | RTL_FEATURE_MSIX)) ? 0 : SA_SHIRQ;
-                rc = request_irq(irq->vector, irq->handler, irq_flags, irq->name, r8127napi);
-
-                if (rc == 0)
-                        irq->requested = 1;
-        }
-#endif
         if (rc)
                 rtl8127_free_irq(tp);
 
@@ -14062,10 +14006,8 @@ static irqreturn_t rtl8127_interrupt(int irq, void *dev_instance)
 
                 handled = 1;
 
-#if defined(RTL_USE_NEW_INTR_API)
                 if (!tp->irq_tbl[0].requested)
                         break;
-#endif
                 rtl8127_disable_hw_interrupt(tp);
 
                 RTL_W32(tp, tp->isr_reg[0], status&~RxFIFOOver);
@@ -14142,10 +14084,8 @@ static irqreturn_t rtl8127_interrupt_msix(int irq, void *dev_instance)
 #endif
 
         do {
-#if defined(RTL_USE_NEW_INTR_API)
                 if (!tp->irq_tbl[message_id].requested)
                         break;
-#endif
                 //link change
                 if (message_id == rtl8127_get_linkchg_message_id(tp)) {
                         rtl8127_disable_hw_layered_interrupt(tp, message_id);
