@@ -667,82 +667,6 @@ static u32 rtl8127_convert_link_speed(u32 status)
         return speed;
 }
 
-#ifdef ENABLE_R8127_SYSFS
-/****************************************************************************
-*   -----------------------------SYSFS STUFF-------------------------
-*****************************************************************************
-*/
-static ssize_t testmode_show(struct device *dev,
-                             struct device_attribute *attr, char *buf)
-{
-        struct net_device *netdev = to_net_dev(dev);
-        struct rtl8127_private *tp = netdev_priv(netdev);
-
-        sprintf(buf, "%u\n", tp->testmode);
-
-        return strlen(buf);
-}
-
-static ssize_t testmode_store(struct device *dev,
-                              struct device_attribute *attr,
-                              const char *buf, size_t count)
-{
-        struct net_device *netdev = to_net_dev(dev);
-        struct rtl8127_private *tp = netdev_priv(netdev);
-        u32 testmode;
-
-        if (sscanf(buf, "%u\n", &testmode) != 1)
-                return -EINVAL;
-
-        if (tp->testmode != testmode) {
-                rtnl_lock();
-                tp->testmode = testmode;
-                rtnl_unlock();
-        }
-
-        return count;
-}
-
-static DEVICE_ATTR_RW(testmode);
-
-static struct attribute *rtk_adv_attrs[] = {
-        &dev_attr_testmode.attr,
-        NULL
-};
-
-static struct attribute_group rtk_adv_grp = {
-        .name = "rtl_adv",
-        .attrs = rtk_adv_attrs,
-};
-
-static void rtl8127_sysfs_init(struct net_device *dev)
-{
-        struct rtl8127_private *tp = netdev_priv(dev);
-        int ret;
-
-        /* init rtl_adv */
-#ifdef ENABLE_LIB_SUPPORT
-        tp->testmode = 0;
-#else
-        tp->testmode = 1;
-#endif //ENABLE_LIB_SUPPORT
-
-        ret = sysfs_create_group(&dev->dev.kobj, &rtk_adv_grp);
-        if (ret < 0)
-                netif_warn(tp, probe, dev, "create rtk_adv_grp fail\n");
-        else
-                set_bit(R8127_SYSFS_RTL_ADV, tp->sysfs_flag);
-}
-
-static void rtl8127_sysfs_remove(struct net_device *dev)
-{
-        struct rtl8127_private *tp = netdev_priv(dev);
-
-        if (test_and_clear_bit(R8127_SYSFS_RTL_ADV, tp->sysfs_flag))
-                sysfs_remove_group(&dev->dev.kobj, &rtk_adv_grp);
-}
-#endif //ENABLE_R8127_SYSFS
-
 static inline u16 map_phy_ocp_addr(u16 PageNum, u8 RegNum)
 {
         u16 OcpPageNum = 0;
@@ -8747,10 +8671,6 @@ rtl8127_init_one(struct pci_dev *pdev,
 
         netif_carrier_off(dev);
 
-#ifdef ENABLE_R8127_SYSFS
-        rtl8127_sysfs_init(dev);
-#endif /* ENABLE_R8127_SYSFS */
-
         printk("%s", GPL_CLAIM);
 
 out:
@@ -8789,10 +8709,6 @@ rtl8127_remove_one(struct pci_dev *pdev)
                 rtl8127_driver_stop(tp);
 
         rtl8127_disable_pci_offset_180(tp);
-
-#ifdef ENABLE_R8127_SYSFS
-        rtl8127_sysfs_remove(dev);
-#endif //ENABLE_R8127_SYSFS
 
         unregister_netdev(dev);
         rtl8127_del_napi(tp);

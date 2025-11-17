@@ -385,10 +385,6 @@ do { \
 #endif
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,0)
-#define ENABLE_R8127_SYSFS
-#endif
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 #define NETIF_F_HW_VLAN_RX	NETIF_F_HW_VLAN_CTAG_RX
 #define NETIF_F_HW_VLAN_TX	NETIF_F_HW_VLAN_CTAG_TX
@@ -2747,11 +2743,6 @@ struct rtl8127_private {
 
         struct ethtool_keee eee;
 
-#ifdef ENABLE_R8127_SYSFS
-        //sysfs support
-        DECLARE_BITMAP(sysfs_flag, R8127_SYSFS_FLAG_MAX);
-        u32 testmode;
-#endif
         u8 HwSuppRxDescType;
         u8 InitRxDescType;
         u16 RxDescLength; //V1 16 Byte V2 32 Bytes
