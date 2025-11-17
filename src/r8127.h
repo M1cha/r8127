@@ -385,10 +385,6 @@ do { \
 #endif
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,37)
-#define ENABLE_R8127_PROCFS
-#endif
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,0)
 #define ENABLE_R8127_SYSFS
 #endif
@@ -2751,12 +2747,6 @@ struct rtl8127_private {
 
         struct ethtool_keee eee;
 
-#ifdef ENABLE_R8127_PROCFS
-        //Procfs support
-        struct proc_dir_entry *proc_dir;
-        struct proc_dir_entry *proc_dir_debug;
-        struct proc_dir_entry *proc_dir_test;
-#endif
 #ifdef ENABLE_R8127_SYSFS
         //sysfs support
         DECLARE_BITMAP(sysfs_flag, R8127_SYSFS_FLAG_MAX);
