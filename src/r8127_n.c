@@ -4054,14 +4054,6 @@ static const struct ethtool_ops rtl8127_ethtool_ops = {
         .get_ethtool_stats  = rtl8127_get_ethtool_stats,
         .get_eeprom     = rtl_get_eeprom,
         .get_eeprom_len     = rtl_get_eeprom_len,
-#ifdef ENABLE_RSS_SUPPORT
-        .get_rxnfc		= rtl8127_get_rxnfc,
-        .set_rxnfc		= rtl8127_set_rxnfc,
-        .get_rxfh_indir_size	= rtl8127_rss_indir_size,
-        .get_rxfh_key_size	= rtl8127_get_rxfh_key_size,
-        .get_rxfh		= rtl8127_get_rxfh,
-        .set_rxfh		= rtl8127_set_rxfh,
-#endif //ENABLE_RSS_SUPPORT
 #ifdef ENABLE_PTP_SUPPORT
         .get_ts_info        = rtl8127_get_ts_info,
 #else
@@ -5741,19 +5733,6 @@ rtl8127_init_software_variable(struct net_device *dev)
         tp->HwSuppIndirTblEntries = 128;
 
         tp->num_rx_rings = 1;
-#ifdef ENABLE_RSS_SUPPORT
-        if (tp->HwSuppRssVer > 0 && tp->HwCurrIsrVer > 1) {
-                u8 rss_queue_num = netif_get_num_default_rss_queues();
-                tp->num_rx_rings = (tp->HwSuppNumRxQueues > rss_queue_num)?
-                                   rss_queue_num : tp->HwSuppNumRxQueues;
-
-                if (!(tp->num_rx_rings >= 2 && tp->irq_nvecs >= tp->num_rx_rings))
-                        tp->num_rx_rings = 1;
-
-                if (tp->num_rx_rings >= 2)
-                        tp->EnableRss = 1;
-        }
-#endif
 
         //interrupt mask
         rtl8127_setup_interrupt_mask(tp);
@@ -5836,11 +5815,6 @@ rtl8127_init_software_variable(struct net_device *dev)
                 eee->tx_lpi_enabled = eee_enable;
                 eee->tx_lpi_timer = dev->mtu + ETH_HLEN + 0x20;
         }
-
-#ifdef ENABLE_RSS_SUPPORT
-        if (tp->EnableRss)
-                rtl8127_init_rss(tp);
-#endif
 }
 
 static void
@@ -7481,13 +7455,6 @@ rtl8127_init_one(struct pci_dev *pdev,
                 dev->features |= NETIF_F_TSO6;
                 netif_set_tso_max_size(dev, LSO_64K);
                 netif_set_tso_max_segs(dev, NIC_MAX_PHYS_BUF_COUNT_LSO2);
-
-#ifdef ENABLE_RSS_SUPPORT
-                if (tp->EnableRss) {
-                        dev->hw_features |= NETIF_F_RXHASH;
-                        dev->features |= NETIF_F_RXHASH;
-                }
-#endif
         }
 
         netdev_sw_irq_coalesce_default_on(dev);
@@ -8021,11 +7988,7 @@ rtl8127_hw_config(struct net_device *dev)
 
         rtl8127_disable_l1_timeout(tp);
 
-#ifdef ENABLE_RSS_SUPPORT
-        rtl8127_config_rss(tp);
-#else
         RTL_W32(tp, RSS_CTRL_8125, 0x00);
-#endif
         rtl8127_set_rx_q_num(tp, rtl8127_tot_rx_rings(tp));
 
         RTL_W8(tp, Config1, RTL_R8(tp, Config1) & ~0x10);
@@ -9813,9 +9776,6 @@ rtl8127_rx_interrupt(struct net_device *dev,
                         rtl8127_rx_ptp_timestamp(tp, skb);
 #endif // ENABLE_PTP_SUPPORT
 
-#ifdef ENABLE_RSS_SUPPORT
-                rtl8127_rx_hash(tp, desc, skb);
-#endif
                 rtl8127_rx_csum(tp, skb, desc);
 
                 skb->protocol = eth_type_trans(skb, dev);

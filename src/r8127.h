@@ -39,13 +39,14 @@
 #include <linux/ethtool.h>
 #include <linux/interrupt.h>
 #include <linux/version.h>
+#include <linux/netdevice.h>
+#include <linux/types.h>
 #include "r8127_dash.h"
 #include "r8127_realwow.h"
 #include "r8127_fiber.h"
 #ifdef ENABLE_PTP_SUPPORT
 #include "r8127_ptp.h"
 #endif
-#include "r8127_rss.h"
 
 #ifndef fallthrough
 #define fallthrough
@@ -209,11 +210,7 @@
 #define PTP_SUFFIX ""
 #endif
 
-#if defined(ENABLE_RSS_SUPPORT)
-#define RSS_SUFFIX "-RSS"
-#else
 #define RSS_SUFFIX ""
-#endif
 
 #define RTL8127_VERSION "11.015.00" NAPI_SUFFIX DASH_SUFFIX REALWOW_SUFFIX PTP_SUFFIX RSS_SUFFIX
 #define MODULENAME "r8127"
@@ -1840,11 +1837,6 @@ struct rtl8127_regs_save {
 
         u32 rxq1_dsc_st_addr_0;
         u32 rxq1_dsc_st_addr_2;
-
-        u32 rss_ctrl;
-        u8 rss_key[RTL8127_RSS_KEY_SIZE];
-        u8 rss_i_table[RTL8127_MAX_INDIRECTION_TABLE_ENTRIES];
-        u16 rss_queue_num_sel_r;
 };
 
 struct rtl8127_counters {
@@ -2154,13 +2146,6 @@ struct rtl8127_private {
         u8 HwSuppRssVer;
         u8 EnableRss;
         u16 HwSuppIndirTblEntries;
-#ifdef ENABLE_RSS_SUPPORT
-        u32 rss_flags;
-        /* Receive Side Scaling settings */
-        u8 rss_key[RTL8127_RSS_KEY_SIZE];
-        u8 rss_indir_tbl[RTL8127_MAX_INDIRECTION_TABLE_ENTRIES];
-        u32 rss_options;
-#endif
 
         u8 HwSuppMacMcuVer;
         u16 MacMcuPageSize;
