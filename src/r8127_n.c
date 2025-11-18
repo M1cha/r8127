@@ -7638,9 +7638,6 @@ rtl8127_set_rxbufsize(struct rtl8127_private *tp,
                   mtu + ETH_HLEN + RT_VALN_HLEN + ETH_FCS_LEN:
                   RX_BUF_SIZE;
         tp->rx_buf_sz = tp->rms;
-#ifdef ENABLE_RX_PACKET_FRAGMENT
-        tp->rx_buf_sz =  SKB_DATA_ALIGN(RX_BUF_SIZE);
-#endif //ENABLE_RX_PACKET_FRAGMENT
 }
 
 static void
@@ -9828,31 +9825,9 @@ rtl8127_rx_interrupt(struct net_device *dev,
                 }
                 pkt_size = status & 0x00003fff;
                 if (likely(!(dev->features & NETIF_F_RXFCS))) {
-#ifdef ENABLE_RX_PACKET_FRAGMENT
-                        if (rtl8127_is_non_eop(tp, status) &&
-                            pkt_size == tp->rx_buf_sz) {
-                                struct RxDesc *desc_next;
-                                unsigned int entry_next;
-                                int pkt_size_next;
-                                u32 status_next;
-
-                                entry_next = (cur_rx + 1) % ring->num_rx_desc;
-                                desc_next = rtl8127_get_rxdesc(tp, ring->RxDescArray, entry_next);
-                                status_next = le32_to_cpu(rtl8127_rx_desc_opts1(tp, desc_next));
-                                if (!(status_next & DescOwn)) {
-                                        pkt_size_next = status_next & 0x00003fff;
-                                        if (pkt_size_next < ETH_FCS_LEN)
-                                                pkt_size -= (ETH_FCS_LEN - pkt_size_next);
-                                }
-                        }
-#endif //ENABLE_RX_PACKET_FRAGMENT
                         if (!rtl8127_is_non_eop(tp, status)) {
                                 if (pkt_size < ETH_FCS_LEN) {
-#ifdef ENABLE_RX_PACKET_FRAGMENT
-                                        pkt_size = 0;
-#else
                                         goto drop_packet;
-#endif //ENABLE_RX_PACKET_FRAGMENT
                                 } else
                                         pkt_size -= ETH_FCS_LEN;
                         }
@@ -9894,16 +9869,6 @@ rtl8127_rx_interrupt(struct net_device *dev,
                 if (tp->flags & RTL_FLAG_RX_HWTSTAMP_ENABLED)
                         rtl8127_rx_ptp_timestamp(tp, skb);
 #endif // ENABLE_PTP_SUPPORT
-
-#ifdef ENABLE_RX_PACKET_FRAGMENT
-                if (rtl8127_is_non_eop(tp, status)) {
-                        unsigned int entry_next;
-                        entry_next = (entry + 1) % ring->num_rx_desc;
-                        rxb = &ring->rx_buffer[entry_next];
-                        rxb->skb = skb;
-                        continue;
-                }
-#endif //ENABLE_RX_PACKET_FRAGMENT
 
 #ifdef ENABLE_RSS_SUPPORT
                 rtl8127_rx_hash(tp, desc, skb);
