@@ -1705,8 +1705,6 @@ rtl8127_hw_reset(struct net_device *dev)
 {
         struct rtl8127_private *tp = netdev_priv(dev);
 
-        rtl8127_lib_reset_prepare(tp);
-
         /* Disable interrupts */
         rtl8127_irq_mask_and_ack(tp);
 
@@ -1815,22 +1813,6 @@ rtl8127_init_ring_indexes(struct rtl8127_private *tp)
                 ring->priv = tp;
                 ring->netdev = tp->dev;
         }
-
-#ifdef ENABLE_LIB_SUPPORT
-        for (i = 0; i < tp->HwSuppNumTxQueues; i++) {
-                struct rtl8127_ring *ring = &tp->lib_tx_ring[i];
-                ring->direction = RTL8127_CH_DIR_TX;
-                ring->queue_num = i;
-                ring->private = tp;
-        }
-
-        for (i = 0; i < tp->HwSuppNumRxQueues; i++) {
-                struct rtl8127_ring *ring = &tp->lib_rx_ring[i];
-                ring->direction = RTL8127_CH_DIR_RX;
-                ring->queue_num = i;
-                ring->private = tp;
-        }
-#endif
 }
 
 static void
@@ -4265,11 +4247,7 @@ rtl8127_exit_oob(struct net_device *dev)
         rtl8127_wait_ll_share_fifo_ready(dev);
 
         rtl8127_mac_ocp_write(tp, 0xC0AA, 0x07D0);
-#ifdef ENABLE_LIB_SUPPORT
-        rtl8127_mac_ocp_write(tp, 0xC0A6, 0x04E2);
-#else
         rtl8127_mac_ocp_write(tp, 0xC0A6, 0x01B5);
-#endif
         rtl8127_mac_ocp_write(tp, 0xC01E, 0x5555);
 
         rtl8127_wait_ll_share_fifo_ready(dev);
@@ -5626,10 +5604,6 @@ rtl8127_init_software_variable(struct net_device *dev)
         struct rtl8127_private *tp = netdev_priv(dev);
         struct pci_dev *pdev = tp->pci_dev;
 
-#ifdef ENABLE_LIB_SUPPORT
-        tp->ring_lib_enabled = 1;
-#endif
-
         switch (tp->mcfg) {
         case CFG_METHOD_2: {
                 u8 tmp = (u8)rtl8127_mac_ocp_read(tp, 0xD006);
@@ -5759,9 +5733,7 @@ rtl8127_init_software_variable(struct net_device *dev)
 
         tp->num_tx_rings = 1;
 #ifdef ENABLE_MULTIPLE_TX_QUEUE
-#ifndef ENABLE_LIB_SUPPORT
         tp->num_tx_rings = tp->HwSuppNumTxQueues;
-#endif
 #endif
         if (tp->HwCurrIsrVer < 2 ||
             (tp->HwCurrIsrVer == 2 && tp->irq_nvecs < 19))
@@ -5773,10 +5745,6 @@ rtl8127_init_software_variable(struct net_device *dev)
 
         tp->num_rx_rings = 1;
 #ifdef ENABLE_RSS_SUPPORT
-#ifdef ENABLE_LIB_SUPPORT
-        if (tp->HwSuppRssVer > 0)
-                tp->EnableRss = 1;
-#else
         if (tp->HwSuppRssVer > 0 && tp->HwCurrIsrVer > 1) {
                 u8 rss_queue_num = netif_get_num_default_rss_queues();
                 tp->num_rx_rings = (tp->HwSuppNumRxQueues > rss_queue_num)?
@@ -5788,7 +5756,6 @@ rtl8127_init_software_variable(struct net_device *dev)
                 if (tp->num_rx_rings >= 2)
                         tp->EnableRss = 1;
         }
-#endif
 #endif
 
         //interrupt mask
@@ -7528,9 +7495,6 @@ rtl8127_init_one(struct pci_dev *pdev,
 
         netdev_sw_irq_coalesce_default_on(dev);
 
-#ifdef ENABLE_LIB_SUPPORT
-        BLOCKING_INIT_NOTIFIER_HEAD(&tp->lib_nh);
-#endif
         rtl8127_init_all_schedule_work(tp);
 
         rc = rtl8127_set_real_num_queue(tp);
@@ -8262,15 +8226,9 @@ rtl8127_hw_start(struct net_device *dev)
 {
         struct rtl8127_private *tp = netdev_priv(dev);
 
-#ifdef ENABLE_LIB_SUPPORT
-        rtl8127_init_lib_ring(tp);
-#endif
-
         RTL_W8(tp, ChipCmd, CmdTxEnb | CmdRxEnb);
 
         rtl8127_enable_hw_interrupt(tp);
-
-        rtl8127_lib_reset_complete(tp);
 }
 
 static int

@@ -46,9 +46,6 @@
 #include "r8127_ptp.h"
 #endif
 #include "r8127_rss.h"
-#ifdef ENABLE_LIB_SUPPORT
-#include "r8127_lib.h"
-#endif
 
 #ifndef fallthrough
 #define fallthrough
@@ -355,11 +352,7 @@ This is free software, and you are welcome to redistribute it under certain cond
 #define R8127_CHANNEL_WAIT_TIME (1)  // 1us
 #define R8127_CHANNEL_EXIT_DELAY_TIME (20)  //20us
 
-#ifdef ENABLE_LIB_SUPPORT
-#define R8127_MULTI_RX_Q(tp) 0
-#else
 #define R8127_MULTI_RX_Q(tp) (tp->num_rx_rings > 1)
-#endif
 
 #define NODE_ADDRESS_SIZE 6
 
@@ -1957,11 +1950,6 @@ struct rtl8127_private {
         unsigned int num_rx_rings;
         struct rtl8127_tx_ring tx_ring[R8127_MAX_TX_QUEUES];
         struct rtl8127_rx_ring rx_ring[R8127_MAX_RX_QUEUES];
-#ifdef ENABLE_LIB_SUPPORT
-        struct blocking_notifier_head lib_nh;
-        struct rtl8127_ring lib_tx_ring[R8127_MAX_TX_QUEUES];
-        struct rtl8127_ring lib_rx_ring[R8127_MAX_RX_QUEUES];
-#endif
         //struct timer_list esd_timer;
         //struct timer_list link_timer;
         struct pci_resource pci_cfg_space;
@@ -2187,32 +2175,6 @@ struct rtl8127_private {
         u16 TcamVlanTagOffset;
 };
 
-#ifdef ENABLE_LIB_SUPPORT
-static inline unsigned int
-rtl8127_num_lib_tx_rings(struct rtl8127_private *tp)
-{
-        int count, i;
-
-        for (count = 0, i = tp->num_tx_rings; i < tp->HwSuppNumTxQueues; i++)
-                if(tp->lib_tx_ring[i].enabled)
-                        count++;
-
-        return count;
-}
-
-static inline unsigned int
-rtl8127_num_lib_rx_rings(struct rtl8127_private *tp)
-{
-        int count, i;
-
-        for (count = 0, i = tp->num_rx_rings; i < tp->HwSuppNumRxQueues; i++)
-                if(tp->lib_rx_ring[i].enabled)
-                        count++;
-
-        return count;
-}
-
-#else
 static inline unsigned int
 rtl8127_num_lib_tx_rings(struct rtl8127_private *tp)
 {
@@ -2224,7 +2186,6 @@ rtl8127_num_lib_rx_rings(struct rtl8127_private *tp)
 {
         return 0;
 }
-#endif
 
 static inline unsigned int
 rtl8127_tot_tx_rings(struct rtl8127_private *tp)
@@ -2435,11 +2396,6 @@ void rtl8127_clear_eth_phy_ocp_bit(struct rtl8127_private *tp, u16 addr, u16 mas
 void rtl8127_set_eth_phy_ocp_bit(struct rtl8127_private *tp,  u16 addr, u16 mask);
 
 void rtl8127_clear_mac_ocp_bit(struct rtl8127_private *tp, u16   addr, u16   mask);
-
-#ifndef ENABLE_LIB_SUPPORT
-static inline void rtl8127_lib_reset_prepare(struct rtl8127_private *tp) { }
-static inline void rtl8127_lib_reset_complete(struct rtl8127_private *tp) { }
-#endif
 
 #define HW_SUPPORT_CHECK_PHY_DISABLE_MODE(_M)        ((_M)->HwSuppCheckPhyDisableModeVer > 0)
 #define HW_HAS_WRITE_PHY_MCU_RAM_CODE(_M)        (((_M)->HwHasWrRamCodeToMicroP == TRUE) ? 1 : 0)
