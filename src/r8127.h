@@ -54,358 +54,24 @@
 #define fallthrough
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0)
-#define netif_xmit_stopped netif_tx_queue_stopped
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0) */
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-#ifndef MDIO_AN_EEE_ADV_100TX
-#define MDIO_AN_EEE_ADV_100TX	0x0002	/* Advertise 100TX EEE cap */
-#endif
-#ifndef MDIO_AN_EEE_ADV_1000T
-#define MDIO_AN_EEE_ADV_1000T	0x0004	/* Advertise 1000T EEE cap */
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,6,0)
-#define MDIO_EEE_100TX		MDIO_AN_EEE_ADV_100TX	/* 100TX EEE cap */
-#define MDIO_EEE_1000T		MDIO_AN_EEE_ADV_1000T	/* 1000T EEE cap */
-#define MDIO_EEE_10GT		0x0008	/* 10GT EEE cap */
-#define MDIO_EEE_1000KX		0x0010	/* 1000KX EEE cap */
-#define MDIO_EEE_10GKX4		0x0020	/* 10G KX4 EEE cap */
-#define MDIO_EEE_10GKR		0x0040	/* 10G KR EEE cap */
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3,6,0) */
-
-static inline u32 mmd_eee_adv_to_ethtool_adv_t(u16 eee_adv)
-{
-        u32 adv = 0;
-
-        if (eee_adv & MDIO_EEE_100TX)
-                adv |= ADVERTISED_100baseT_Full;
-        if (eee_adv & MDIO_EEE_1000T)
-                adv |= ADVERTISED_1000baseT_Full;
-        if (eee_adv & MDIO_EEE_10GT)
-                adv |= ADVERTISED_10000baseT_Full;
-        if (eee_adv & MDIO_EEE_1000KX)
-                adv |= ADVERTISED_1000baseKX_Full;
-        if (eee_adv & MDIO_EEE_10GKX4)
-                adv |= ADVERTISED_10000baseKX4_Full;
-        if (eee_adv & MDIO_EEE_10GKR)
-                adv |= ADVERTISED_10000baseKR_Full;
-
-        return adv;
-}
-
-static inline u16 ethtool_adv_to_mmd_eee_adv_t(u32 adv)
-{
-        u16 reg = 0;
-
-        if (adv & ADVERTISED_100baseT_Full)
-                reg |= MDIO_EEE_100TX;
-        if (adv & ADVERTISED_1000baseT_Full)
-                reg |= MDIO_EEE_1000T;
-        if (adv & ADVERTISED_10000baseT_Full)
-                reg |= MDIO_EEE_10GT;
-        if (adv & ADVERTISED_1000baseKX_Full)
-                reg |= MDIO_EEE_1000KX;
-        if (adv & ADVERTISED_10000baseKX4_Full)
-                reg |= MDIO_EEE_10GKX4;
-        if (adv & ADVERTISED_10000baseKR_Full)
-                reg |= MDIO_EEE_10GKR;
-
-        return reg;
-}
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0) */
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0)
-static inline bool skb_transport_header_was_set(const struct sk_buff *skb)
-{
-        return skb->transport_header != ~0U;
-}
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0) */
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,20,0)
-static inline void linkmode_set_bit(int nr, volatile unsigned long *addr)
-{
-        __set_bit(nr, addr);
-}
-
-static inline void linkmode_clear_bit(int nr, volatile unsigned long *addr)
-{
-        __clear_bit(nr, addr);
-}
-
-static inline int linkmode_test_bit(int nr, volatile unsigned long *addr)
-{
-        return test_bit(nr, addr);
-}
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4,20,0) */
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-static inline void linkmode_mod_bit(int nr, volatile unsigned long *addr,
-                                    int set)
-{
-        if (set)
-                linkmode_set_bit(nr, addr);
-        else
-                linkmode_clear_bit(nr, addr);
-}
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0) */
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,3,0)
-static inline
-ssize_t strscpy(char *dest, const char *src, size_t count)
-{
-        long res = 0;
-
-        if (count == 0)
-                return -E2BIG;
-
-        while (count) {
-                char c;
-
-                c = src[res];
-                dest[res] = c;
-                if (!c)
-                        return res;
-                res++;
-                count--;
-        }
-
-        /* Hit buffer length without finding a NUL; force NUL-termination. */
-        if (res)
-                dest[res-1] = '\0';
-
-        return -E2BIG;
-}
-#endif
-
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0))
-static inline unsigned char *skb_checksum_start(const struct sk_buff *skb)
-{
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22))
-        return skb->head + skb->csum_start;
-#else /* < 2.6.22 */
-        return skb_transport_header(skb);
-#endif
-}
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0)
-static inline void netdev_tx_sent_queue(struct netdev_queue *dev_queue,
-                                        unsigned int bytes)
-{}
-static inline void netdev_tx_completed_queue(struct netdev_queue *dev_queue,
-                unsigned int pkts,
-                unsigned int bytes)
-{}
-static inline void netdev_tx_reset_queue(struct netdev_queue *q) {}
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,8,0)
-static inline void fsleep(unsigned long usecs)
-{
-        if (usecs <= 10)
-                udelay(usecs);
-        else if (usecs <= 20000)
-                usleep_range(usecs, 2 * usecs);
-        else
-                msleep(DIV_ROUND_UP(usecs, 1000));
-}
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(5,8,0) */
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,2,0)
-#define netdev_xmit_more() (0)
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,8,0)
-#define netif_testing_on(dev)
-#define netif_testing_off(dev)
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6,2,0)
-#define netdev_sw_irq_coalesce_default_on(dev)
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(6,2,0) */
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
-typedef int netdev_tx_t;
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,12,0)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,9)
-static inline bool page_is_pfmemalloc(struct page *page)
-{
-        /*
-         * Page index cannot be this large so this must be
-         * a pfmemalloc page.
-         */
-        return page->index == -1UL;
-}
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4,1,9) */
-static inline bool dev_page_is_reusable(struct page *page)
-{
-        return likely(page_to_nid(page) == numa_mem_id() &&
-                      !page_is_pfmemalloc(page));
-}
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
-#define dma_map_page_attrs(dev, page, offset, size, dir, attrs) \
-	dma_map_page(dev, page, offset, size, dir)
-#define dma_unmap_page_attrs(dev, page, size, dir, attrs) \
-	 dma_unmap_page(dev, page, size, dir)
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
-#define page_ref_inc(page) atomic_inc(&page->_count)
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,216)
-#define page_ref_count(page) atomic_read(&page->_count)
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(4,4,216)
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-#define skb_transport_offset(skb) (skb->h.raw - skb->data)
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,26)
-#define device_set_wakeup_enable(dev, val)	do {} while (0)
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0)
-static inline void ether_addr_copy(u8 *dst, const u8 *src)
-{
-        u16 *a = (u16 *)dst;
-        const u16 *b = (const u16 *)src;
-
-        a[0] = b[0];
-        a[1] = b[1];
-        a[2] = b[2];
-}
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0)
-#define IS_ERR_OR_NULL(ptr)			(!ptr)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,13,0)
-#define reinit_completion(x)			((x)->done = 0)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
-#define pm_runtime_mark_last_busy(x)
-#define pm_runtime_put_autosuspend(x)		pm_runtime_put(x)
-#define pm_runtime_put_sync_autosuspend(x)	pm_runtime_put_sync(x)
-
-static inline bool pm_runtime_suspended(struct device *dev)
-{
-        return dev->power.runtime_status == RPM_SUSPENDED
-               && !dev->power.disable_depth;
-}
-
-static inline bool pm_runtime_active(struct device *dev)
-{
-        return dev->power.runtime_status == RPM_ACTIVE
-               || dev->power.disable_depth;
-}
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
-#define queue_delayed_work(long_wq, work, delay)	schedule_delayed_work(work, delay)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,34)
-#define netif_printk(priv, type, level, netdev, fmt, args...)	\
-	do {								\
-		if (netif_msg_##type(priv))				\
-			printk(level "%s: " fmt,(netdev)->name , ##args); \
-	} while (0)
-
-#define netif_emerg(priv, type, netdev, fmt, args...)		\
-		netif_printk(priv, type, KERN_EMERG, netdev, fmt, ##args)
-#define netif_alert(priv, type, netdev, fmt, args...)		\
-		netif_printk(priv, type, KERN_ALERT, netdev, fmt, ##args)
-#define netif_crit(priv, type, netdev, fmt, args...)		\
-		netif_printk(priv, type, KERN_CRIT, netdev, fmt, ##args)
-#define netif_err(priv, type, netdev, fmt, args...)		\
-		netif_printk(priv, type, KERN_ERR, netdev, fmt, ##args)
-#define netif_warn(priv, type, netdev, fmt, args...)		\
-		netif_printk(priv, type, KERN_WARNING, netdev, fmt, ##args)
-#define netif_notice(priv, type, netdev, fmt, args...)		\
-		netif_printk(priv, type, KERN_NOTICE, netdev, fmt, ##args)
-#define netif_info(priv, type, netdev, fmt, args...)		\
-		netif_printk(priv, type, KERN_INFO, (netdev), fmt, ##args)
-#endif
-#endif
-#endif
-#endif
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,15)
-#define setup_timer(_timer, _function, _data) \
-do { \
-	(_timer)->function = _function; \
-	(_timer)->data = _data; \
-	init_timer(_timer); \
-} while (0)
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,15)
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,0,0)
-#if defined(skb_vlan_tag_present) && !defined(vlan_tx_tag_present)
-#define vlan_tx_tag_present skb_vlan_tag_present
-#endif
-#if defined(skb_vlan_tag_get) && !defined(vlan_tx_tag_get)
-#define vlan_tx_tag_get skb_vlan_tag_get
-#endif
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(4,0,0)
-
 #define RTL_ALLOC_SKB_INTR(napi, length) dev_alloc_skb(length)
 #define R8127_USE_NAPI_ALLOC_SKB 0
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)
 #undef RTL_ALLOC_SKB_INTR
 #define RTL_ALLOC_SKB_INTR(napi, length) napi_alloc_skb(napi, length)
 #undef R8127_USE_NAPI_ALLOC_SKB
 #define R8127_USE_NAPI_ALLOC_SKB 1
-#endif
 
 #define RTL_BUILD_SKB_INTR(data, frag_size) build_skb(data, frag_size)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,12,0)
 #undef RTL_BUILD_SKB_INTR
 #define RTL_BUILD_SKB_INTR(data, frag_size) napi_build_skb(data, frag_size)
-#endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,6,0)
-#define eth_random_addr(addr) random_ether_addr(addr)
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(3,6,0)
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
-#define netdev_features_t  u32
-#endif
-#endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
 #define NETIF_F_ALL_CSUM        NETIF_F_CSUM_MASK
-#else
-#ifndef NETIF_F_ALL_CSUM
-#define NETIF_F_ALL_CSUM        NETIF_F_CSUM_MASK
-#endif
-#endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 #define NETIF_F_HW_VLAN_RX	NETIF_F_HW_VLAN_CTAG_RX
 #define NETIF_F_HW_VLAN_TX	NETIF_F_HW_VLAN_CTAG_TX
-#endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0)
 #define __devinit
 #define __devexit
 #define __devexit_p(func)   func
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-#define CHECKSUM_PARTIAL CHECKSUM_HW
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-#define irqreturn_t void
-#define IRQ_HANDLED    1
-#define IRQ_NONE   0
-#define IRQ_RETVAL(x)
-#endif
 
 #ifndef NETIF_F_RXALL
 #define NETIF_F_RXALL  0
@@ -413,10 +79,6 @@ do { \
 
 #ifndef NETIF_F_RXFCS
 #define NETIF_F_RXFCS  0
-#endif
-
-#if !defined(HAVE_FREE_NETDEV) && (LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0))
-#define free_netdev(x)  kfree(x)
 #endif
 
 #ifndef SET_NETDEV_DEV
@@ -500,50 +162,10 @@ do { \
 #define  MDIO_EEE_5GT  0x0002
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6,9,0)
-#define ethtool_keee ethtool_eee
-#define rtl8127_ethtool_adv_to_mmd_eee_adv_cap1_t ethtool_adv_to_mmd_eee_adv_t
-static inline u32 rtl8127_ethtool_adv_to_mmd_eee_adv_cap2_t(u32 adv)
-{
-        u32 result = 0;
-
-        if (adv & SUPPORTED_2500baseX_Full)
-                result |= MDIO_EEE_2_5GT;
-
-        return result;
-}
-#else
 #define rtl8127_ethtool_adv_to_mmd_eee_adv_cap1_t linkmode_to_mii_eee_cap1_t
 #define rtl8127_ethtool_adv_to_mmd_eee_adv_cap2_t linkmode_to_mii_eee_cap2_t
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(6,9,0) */
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29)
-#ifdef CONFIG_NET_POLL_CONTROLLER
-#define RTL_NET_POLL_CONTROLLER dev->poll_controller=rtl8127_netpoll
-#else
-#define RTL_NET_POLL_CONTROLLER
-#endif
-
-#ifdef CONFIG_R8127_VLAN
-#define RTL_SET_VLAN dev->vlan_rx_register=rtl8127_vlan_rx_register
-#else
-#define RTL_SET_VLAN
-#endif
-
-#define RTL_NET_DEVICE_OPS(ops) dev->open=rtl8127_open; \
-                    dev->hard_start_xmit=rtl8127_start_xmit; \
-                    dev->get_stats=rtl8127_get_stats; \
-                    dev->stop=rtl8127_close; \
-                    dev->tx_timeout=rtl8127_tx_timeout; \
-                    dev->set_multicast_list=rtl8127_set_rx_mode; \
-                    dev->change_mtu=rtl8127_change_mtu; \
-                    dev->set_mac_address=rtl8127_set_mac_address; \
-                    dev->do_ioctl=rtl8127_do_ioctl; \
-                    RTL_NET_POLL_CONTROLLER; \
-                    RTL_SET_VLAN;
-#else
 #define RTL_NET_DEVICE_OPS(ops) dev->netdev_ops=&ops
-#endif
 
 #ifndef FALSE
 #define FALSE 0
@@ -863,126 +485,29 @@ This is free software, and you are welcome to redistribute it under certain cond
 #define R8127_LINK_STATE_ON 1
 #define R8127_LINK_STATE_UNKNOWN 2
 
-/*****************************************************************************/
-
-//#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,3)
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(2,4,27)) || \
-     ((LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)) && \
-      (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,3))))
-/* copied from linux kernel 2.6.20 include/linux/netdev.h */
-#define NETDEV_ALIGN        32
-#define NETDEV_ALIGN_CONST  (NETDEV_ALIGN - 1)
-
-static inline void *netdev_priv(struct net_device *dev)
-{
-        return (char *)dev + ((sizeof(struct net_device)
-                               + NETDEV_ALIGN_CONST)
-                              & ~NETDEV_ALIGN_CONST);
-}
-#endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,3)
-
-/*****************************************************************************/
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-#define RTLDEV  tp
-#else
 #define RTLDEV  dev
-#endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-/*****************************************************************************/
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
-typedef struct net_device *napi_ptr;
-typedef int *napi_budget;
-
-#define napi dev
-#define RTL_NAPI_CONFIG(ndev, priv, function, weig) ndev->poll=function;    \
-                                ndev->weight=weig;
-#define RTL_NAPI_QUOTA(budget, ndev)            min(*budget, ndev->quota)
-#define RTL_GET_PRIV(stuct_ptr, priv_struct)        netdev_priv(stuct_ptr)
-#define RTL_GET_NETDEV(priv_ptr)
-#define RTL_RX_QUOTA(budget)          *budget
-#define RTL_NAPI_QUOTA_UPDATE(ndev, work_done, budget)  *budget -= work_done;   \
-                                ndev->quota -= work_done;
-#define RTL_NETIF_RX_COMPLETE(dev, napi, work_done)        netif_rx_complete(dev)
-#define RTL_NETIF_RX_SCHEDULE_PREP(dev, napi)       netif_rx_schedule_prep(dev)
-#define __RTL_NETIF_RX_SCHEDULE(dev, napi)      __netif_rx_schedule(dev)
-#define RTL_NAPI_RETURN_VALUE               work_done >= work_to_do
-#define RTL_NAPI_ENABLE(dev, napi)          netif_poll_enable(dev)
-#define RTL_NAPI_DISABLE(dev, napi)         netif_poll_disable(dev)
-#define DMA_BIT_MASK(n) (((n) == 64) ? ~0ULL : ((1ULL<<(n))-1))
-#else
 typedef struct napi_struct *napi_ptr;
 typedef int napi_budget;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,1,0)
 #define RTL_NAPI_CONFIG(ndev, priv, function, weight)   netif_napi_add_weight(ndev, &priv->napi, function, weight)
-#else
-#define RTL_NAPI_CONFIG(ndev, priv, function, weight)   netif_napi_add(ndev, &priv->napi, function, weight)
-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(6,1,0)
 #define RTL_NAPI_QUOTA(budget, ndev)            min(budget, budget)
 #define RTL_GET_PRIV(stuct_ptr, priv_struct)        container_of(stuct_ptr, priv_struct, stuct_ptr)
 #define RTL_GET_NETDEV(priv_ptr)            struct net_device *dev = priv_ptr->dev;
 #define RTL_RX_QUOTA(budget)          budget
 #define RTL_NAPI_QUOTA_UPDATE(ndev, work_done, budget)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29)
-#define RTL_NETIF_RX_COMPLETE(dev, napi, work_done)        netif_rx_complete(dev, napi)
-#define RTL_NETIF_RX_SCHEDULE_PREP(dev, napi)       netif_rx_schedule_prep(dev, napi)
-#define __RTL_NETIF_RX_SCHEDULE(dev, napi)      __netif_rx_schedule(dev, napi)
-#endif
-#if LINUX_VERSION_CODE == KERNEL_VERSION(2,6,29)
-#define RTL_NETIF_RX_COMPLETE(dev, napi, work_done)        netif_rx_complete(napi)
-#define RTL_NETIF_RX_SCHEDULE_PREP(dev, napi)       netif_rx_schedule_prep(napi)
-#define __RTL_NETIF_RX_SCHEDULE(dev, napi)      __netif_rx_schedule(napi)
-#endif
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,29)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)
 #define RTL_NETIF_RX_COMPLETE(dev, napi, work_done)        napi_complete_done(napi, work_done)
-#else
-#define RTL_NETIF_RX_COMPLETE(dev, napi, work_done)        napi_complete(napi)
-#endif
 #define RTL_NETIF_RX_SCHEDULE_PREP(dev, napi)       napi_schedule_prep(napi)
 #define __RTL_NETIF_RX_SCHEDULE(dev, napi)      __napi_schedule(napi)
-#endif
 #define RTL_NAPI_RETURN_VALUE work_done
 #define RTL_NAPI_ENABLE(dev, napi)          napi_enable(napi)
 #define RTL_NAPI_DISABLE(dev, napi)         napi_disable(napi)
-#endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
-#define RTL_NAPI_DEL(priv)
-#else
 #define RTL_NAPI_DEL(priv)   netif_napi_del(&priv->napi)
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
 
 /*****************************************************************************/
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0)
 #define RTL_NAPI_CONSUME_SKB_ANY(skb, budget)          napi_consume_skb(skb, budget)
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0)
-#define RTL_NAPI_CONSUME_SKB_ANY(skb, budget)          dev_consume_skb_any(skb);
-#else
-#define RTL_NAPI_CONSUME_SKB_ANY(skb, budget)          dev_kfree_skb_any(skb);
-#endif  //LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0)
 
 /*****************************************************************************/
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,9)
-#ifdef __CHECKER__
-#define __iomem __attribute__((noderef, address_space(2)))
-extern void __chk_io_ptr(void __iomem *);
-#define __bitwise __attribute__((bitwise))
-#else
-#define __iomem
-#define __chk_io_ptr(x) (void)0
-#define __bitwise
-#endif
-#endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,9)
-
-/*****************************************************************************/
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,8)
-#ifdef __CHECKER__
-#define __force __attribute__((force))
-#else
-#define __force
-#endif
-#endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,8)
 
 #ifndef module_param
 #define module_param(v,t,p) MODULE_PARM(v, "i");
@@ -994,98 +519,8 @@ extern void __chk_io_ptr(void __iomem *);
     .subvendor = PCI_ANY_ID, .subdevice = PCI_ANY_ID
 #endif
 
-/*****************************************************************************/
-/* 2.5.28 => 2.4.23 */
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,5,28))
-
-static inline void _kc_synchronize_irq(void)
-{
-        synchronize_irq();
-}
-#undef synchronize_irq
-#define synchronize_irq(X) _kc_synchronize_irq()
-
-#include <linux/tqueue.h>
-#define work_struct tq_struct
-#undef INIT_WORK
-#define INIT_WORK(a,b,c) INIT_TQUEUE(a,(void (*)(void *))b,c)
-#undef container_of
-#define container_of list_entry
-#define schedule_work schedule_task
-#define flush_scheduled_work flush_scheduled_tasks
-#endif /* 2.5.28 => 2.4.17 */
-
-/*****************************************************************************/
-/* 2.6.4 => 2.6.0 */
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,4))
-#define MODULE_VERSION(_version) MODULE_INFO(version, _version)
-#endif /* 2.6.4 => 2.6.0 */
-/*****************************************************************************/
-/* 2.6.0 => 2.5.28 */
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0))
-#define MODULE_INFO(version, _version)
-#ifndef CONFIG_E1000_DISABLE_PACKET_SPLIT
-#define CONFIG_E1000_DISABLE_PACKET_SPLIT 1
-#endif
-
-#define pci_set_consistent_dma_mask(dev,mask) 1
-
-#undef dev_put
-#define dev_put(dev) __dev_put(dev)
-
-#ifndef skb_fill_page_desc
-#define skb_fill_page_desc _kc_skb_fill_page_desc
-extern void _kc_skb_fill_page_desc(struct sk_buff *skb, int i, struct page *page, int off, int size);
-#endif
-
-#ifndef pci_dma_mapping_error
-#define pci_dma_mapping_error _kc_pci_dma_mapping_error
-static inline int _kc_pci_dma_mapping_error(dma_addr_t dma_addr)
-{
-        return dma_addr == 0;
-}
-#endif
-
 #undef ALIGN
 #define ALIGN(x,a) (((x)+(a)-1)&~((a)-1))
-
-#endif /* 2.6.0 => 2.5.28 */
-
-/*****************************************************************************/
-/* 2.4.22 => 2.4.17 */
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,4,22))
-#define pci_name(x) ((x)->slot_name)
-#endif /* 2.4.22 => 2.4.17 */
-
-/*****************************************************************************/
-/* 2.6.5 => 2.6.0 */
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,5))
-#define pci_dma_sync_single_for_cpu pci_dma_sync_single
-#define pci_dma_sync_single_for_device  pci_dma_sync_single_for_cpu
-#endif /* 2.6.5 => 2.6.0 */
-
-/*****************************************************************************/
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-/*
- * initialize a work-struct's func and data pointers:
- */
-#define PREPARE_WORK(_work, _func, _data)           \
-    do {                            \
-        (_work)->func = _func;              \
-        (_work)->data = _data;              \
-    } while (0)
-
-#endif
-/*****************************************************************************/
-/* 2.6.4 => 2.6.0 */
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(2,4,25) && \
-     LINUX_VERSION_CODE > KERNEL_VERSION(2,4,22)) || \
-    (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0) && \
-      LINUX_VERSION_CODE < KERNEL_VERSION(2,6,4)))
-#define ETHTOOL_OPS_COMPAT
-#endif /* 2.6.4 => 2.6.0 */
-
 /*****************************************************************************/
 /* Installations with ethtool version without eeprom, adapter id, or statistics
  * support */
@@ -2253,9 +1688,7 @@ struct rtl8127_rx_ring {
 };
 
 struct r8127_napi {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
         struct napi_struct napi;
-#endif
         void* priv;
         int index;
 };
@@ -2489,20 +1922,6 @@ enum rtl8127_state_t {
 
 #define RTL_FLAG_RX_HWTSTAMP_ENABLED BIT_0
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,6,0)
-struct ethtool_eee {
-        __u32	cmd;
-        __u32	supported;
-        __u32	advertised;
-        __u32	lp_advertised;
-        __u32	eee_active;
-        __u32	eee_enabled;
-        __u32	tx_lpi_enabled;
-        __u32	tx_lpi_timer;
-        __u32	reserved[2];
-};
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3,6,0) */
-
 struct rtl8127_private {
         void __iomem *mmio_addr;    /* memory map physical address */
         struct pci_dev *pci_dev;    /* Index of PCI device */
@@ -2591,25 +2010,14 @@ struct rtl8127_private {
         u32 bios_setting;
 
         int (*set_speed)(struct net_device *, u8 autoneg, u32 speed, u8 duplex, u64 adv);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
-        void (*get_settings)(struct net_device *, struct ethtool_cmd *);
-#else
         void (*get_settings)(struct net_device *, struct ethtool_link_ksettings *);
-#endif
         void (*phy_reset_enable)(struct net_device *);
         unsigned int (*phy_reset_pending)(struct net_device *);
         unsigned int (*link_ok)(struct net_device *);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
-        struct work_struct reset_task;
-        struct work_struct esd_task;
-        struct work_struct linkchg_task;
-        struct work_struct dash_task;
-#else
         struct delayed_work reset_task;
         struct delayed_work esd_task;
         struct delayed_work linkchg_task;
         struct delayed_work dash_task;
-#endif
         DECLARE_BITMAP(task_flags, R8127_FLAG_MAX);
         unsigned features;
 
@@ -3053,12 +2461,5 @@ static inline void rtl8127_lib_reset_complete(struct rtl8127_private *tp) { }
 #define HW_SUPP_PHY_LINK_SPEED_2500M(_M)        ((_M)->HwSuppMaxPhyLinkSpeed >= 2500)
 #define HW_SUPP_PHY_LINK_SPEED_5000M(_M)        ((_M)->HwSuppMaxPhyLinkSpeed >= 5000)
 #define HW_SUPP_PHY_LINK_SPEED_10000M(_M)        ((_M)->HwSuppMaxPhyLinkSpeed >= 10000)
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,34)
-#define netdev_mc_count(dev) ((dev)->mc_count)
-#define netdev_mc_empty(dev) (netdev_mc_count(dev) == 0)
-#define netdev_for_each_mc_addr(mclist, dev) \
-    for (mclist = dev->mc_list; mclist; mclist = mclist->next)
-#endif
 
 #endif /* __R8127_H */

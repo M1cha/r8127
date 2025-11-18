@@ -48,38 +48,17 @@
 #include <linux/interrupt.h>
 #include <linux/in.h>
 #include <linux/ip.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
 #include <linux/ipv6.h>
 #include <net/ip6_checksum.h>
-#endif
 #include <linux/tcp.h>
 #include <linux/init.h>
 #include <linux/rtnetlink.h>
 #include <linux/completion.h>
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,4,0)
-#include <linux/pci-aspm.h>
-#endif
-#endif
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,37)
 #include <linux/prefetch.h>
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-#define dev_printk(A,B,fmt,args...) printk(A fmt,##args)
-#else
 #include <linux/dma-mapping.h>
 #include <linux/moduleparam.h>
-#endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,31)
 #include <linux/mdio.h>
-#endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,4,10)
 #include <net/gso.h>
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(6,4,10) */
 
 #include <asm/io.h>
 #include <asm/irq.h>
@@ -238,47 +217,25 @@ MODULE_PARM_DESC(enable_double_vlan, "Enable Double VLAN.");
 module_param(eee_giga_lite, int, 0);
 MODULE_PARM_DESC(eee_giga_lite, "Enable Giga Lite.");
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
 module_param_named(debug, debug.msg_enable, int, 0);
 MODULE_PARM_DESC(debug, "Debug verbosity level (0=none, ..., 16=all)");
-#endif//LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
 
 MODULE_LICENSE("GPL");
 
 MODULE_VERSION(RTL8127_VERSION);
 
 /*
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
-static void rtl8127_esd_timer(unsigned long __opaque);
-#else
 static void rtl8127_esd_timer(struct timer_list *t);
-#endif
 */
 /*
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
-static void rtl8127_link_timer(unsigned long __opaque);
-#else
 static void rtl8127_link_timer(struct timer_list *t);
-#endif
 */
 
 static netdev_tx_t rtl8127_start_xmit(struct sk_buff *skb, struct net_device *dev);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-static irqreturn_t rtl8127_interrupt(int irq, void *dev_instance, struct pt_regs *regs);
-#else
 static irqreturn_t rtl8127_interrupt(int irq, void *dev_instance);
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-static irqreturn_t rtl8127_interrupt_msix(int irq, void *dev_instance, struct pt_regs *regs);
-#else
 static irqreturn_t rtl8127_interrupt_msix(int irq, void *dev_instance);
-#endif
 static void rtl8127_set_rx_mode(struct net_device *dev);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
 static void rtl8127_tx_timeout(struct net_device *dev, unsigned int txqueue);
-#else
-static void rtl8127_tx_timeout(struct net_device *dev);
-#endif
 static int rtl8127_rx_interrupt(struct net_device *, struct rtl8127_private *, struct rtl8127_rx_ring *, napi_budget);
 static int rtl8127_tx_interrupt(struct rtl8127_tx_ring *ring, int budget);
 static int rtl8127_tx_interrupt_with_vector(struct rtl8127_private *tp, const int message_id, int budget);
@@ -301,17 +258,10 @@ static bool rtl8127_clear_phy_mcu_patch_request(struct rtl8127_private *tp);
 
 static int rtl8127_poll(napi_ptr napi, napi_budget budget);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
-static void rtl8127_reset_task(void *_data);
-static void rtl8127_esd_task(void *_data);
-static void rtl8127_linkchg_task(void *_data);
-static void rtl8127_dash_task(void *_data);
-#else
 static void rtl8127_reset_task(struct work_struct *work);
 static void rtl8127_esd_task(struct work_struct *work);
 static void rtl8127_linkchg_task(struct work_struct *work);
 static void rtl8127_dash_task(struct work_struct *work);
-#endif
 static void rtl8127_schedule_reset_work(struct rtl8127_private *tp);
 static void rtl8127_schedule_esd_work(struct rtl8127_private *tp);
 static void rtl8127_schedule_linkchg_work(struct rtl8127_private *tp);
@@ -324,114 +274,11 @@ static inline struct device *tp_to_dev(struct rtl8127_private *tp)
         return &tp->pci_dev->dev;
 }
 
-#if ((LINUX_VERSION_CODE < KERNEL_VERSION(4,7,0) && \
-     LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,00)))
-void ethtool_convert_legacy_u32_to_link_mode(unsigned long *dst,
-                u32 legacy_u32)
-{
-        bitmap_zero(dst, __ETHTOOL_LINK_MODE_MASK_NBITS);
-        dst[0] = legacy_u32;
-}
-
-bool ethtool_convert_link_mode_to_legacy_u32(u32 *legacy_u32,
-                const unsigned long *src)
-{
-        bool retval = true;
-
-        /* TODO: following test will soon always be true */
-        if (__ETHTOOL_LINK_MODE_MASK_NBITS > 32) {
-                __ETHTOOL_DECLARE_LINK_MODE_MASK(ext);
-
-                bitmap_zero(ext, __ETHTOOL_LINK_MODE_MASK_NBITS);
-                bitmap_fill(ext, 32);
-                bitmap_complement(ext, ext, __ETHTOOL_LINK_MODE_MASK_NBITS);
-                if (bitmap_intersects(ext, src,
-                                      __ETHTOOL_LINK_MODE_MASK_NBITS)) {
-                        /* src mask goes beyond bit 31 */
-                        retval = false;
-                }
-        }
-        *legacy_u32 = src[0];
-        return retval;
-}
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0)
-
-#ifndef LPA_1000FULL
-#define LPA_1000FULL            0x0800
-#endif
-
-#ifndef LPA_1000HALF
-#define LPA_1000HALF            0x0400
-#endif
-
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0)
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0)
-static inline void eth_hw_addr_random(struct net_device *dev)
-{
-        random_ether_addr(dev->dev_addr);
-}
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-#undef ethtool_ops
-#define ethtool_ops _kc_ethtool_ops
-
-struct _kc_ethtool_ops {
-        int  (*get_settings)(struct net_device *, struct ethtool_cmd *);
-        int  (*set_settings)(struct net_device *, struct ethtool_cmd *);
-        void (*get_drvinfo)(struct net_device *, struct ethtool_drvinfo *);
-        int  (*get_regs_len)(struct net_device *);
-        void (*get_regs)(struct net_device *, struct ethtool_regs *, void *);
-        void (*get_wol)(struct net_device *, struct ethtool_wolinfo *);
-        int  (*set_wol)(struct net_device *, struct ethtool_wolinfo *);
-        u32  (*get_msglevel)(struct net_device *);
-        void (*set_msglevel)(struct net_device *, u32);
-        int  (*nway_reset)(struct net_device *);
-        u32  (*get_link)(struct net_device *);
-        int  (*get_eeprom_len)(struct net_device *);
-        int  (*get_eeprom)(struct net_device *, struct ethtool_eeprom *, u8 *);
-        int  (*set_eeprom)(struct net_device *, struct ethtool_eeprom *, u8 *);
-        int  (*get_coalesce)(struct net_device *, struct ethtool_coalesce *);
-        int  (*set_coalesce)(struct net_device *, struct ethtool_coalesce *);
-        void (*get_ringparam)(struct net_device *, struct ethtool_ringparam *);
-        int  (*set_ringparam)(struct net_device *, struct ethtool_ringparam *);
-        void (*get_pauseparam)(struct net_device *,
-                               struct ethtool_pauseparam*);
-        int  (*set_pauseparam)(struct net_device *,
-                               struct ethtool_pauseparam*);
-        u32  (*get_rx_csum)(struct net_device *);
-        int  (*set_rx_csum)(struct net_device *, u32);
-        u32  (*get_tx_csum)(struct net_device *);
-        int  (*set_tx_csum)(struct net_device *, u32);
-        u32  (*get_sg)(struct net_device *);
-        int  (*set_sg)(struct net_device *, u32);
-        u32  (*get_tso)(struct net_device *);
-        int  (*set_tso)(struct net_device *, u32);
-        int  (*self_test_count)(struct net_device *);
-        void (*self_test)(struct net_device *, struct ethtool_test *, u64 *);
-        void (*get_strings)(struct net_device *, u32 stringset, u8 *);
-        int  (*phys_id)(struct net_device *, u32);
-        int  (*get_stats_count)(struct net_device *);
-        void (*get_ethtool_stats)(struct net_device *, struct ethtool_stats *,
-                                  u64 *);
-} *ethtool_ops = NULL;
-
-#undef SET_ETHTOOL_OPS
-#define SET_ETHTOOL_OPS(netdev, ops) (ethtool_ops = (ops))
-
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
 #ifndef SET_ETHTOOL_OPS
 #define SET_ETHTOOL_OPS(netdev,ops) \
          ((netdev)->ethtool_ops = (ops))
 #endif //SET_ETHTOOL_OPS
-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
 
-//#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,5)
 #ifndef netif_msg_init
 #define netif_msg_init _kc_netif_msg_init
 /* copied from linux kernel 2.6.20 include/linux/netdevice.h */
@@ -446,152 +293,14 @@ static inline u32 netif_msg_init(int debug_value, int default_msg_enable_bits)
         return (1 << debug_value) - 1;
 }
 
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,5)
+#endif //netif_msg_init
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,22)
 static inline void eth_copy_and_sum (struct sk_buff *dest,
                                      const unsigned char *src,
                                      int len, int base)
 {
         skb_copy_to_linear_data(dest, src, len);
 }
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,6,22)
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,7)
-/* copied from linux kernel 2.6.20 /include/linux/time.h */
-/* Parameters used to convert the timespec values: */
-#define MSEC_PER_SEC    1000L
-
-/* copied from linux kernel 2.6.20 /include/linux/jiffies.h */
-/*
- * Change timeval to jiffies, trying to avoid the
- * most obvious overflows..
- *
- * And some not so obvious.
- *
- * Note that we don't want to return MAX_LONG, because
- * for various timeout reasons we often end up having
- * to wait "jiffies+1" in order to guarantee that we wait
- * at _least_ "jiffies" - so "jiffies+1" had better still
- * be positive.
- */
-#define MAX_JIFFY_OFFSET ((~0UL >> 1)-1)
-
-/*
- * Convert jiffies to milliseconds and back.
- *
- * Avoid unnecessary multiplications/divisions in the
- * two most common HZ cases:
- */
-static inline unsigned int _kc_jiffies_to_msecs(const unsigned long j)
-{
-#if HZ <= MSEC_PER_SEC && !(MSEC_PER_SEC % HZ)
-        return (MSEC_PER_SEC / HZ) * j;
-#elif HZ > MSEC_PER_SEC && !(HZ % MSEC_PER_SEC)
-        return (j + (HZ / MSEC_PER_SEC) - 1)/(HZ / MSEC_PER_SEC);
-#else
-        return (j * MSEC_PER_SEC) / HZ;
-#endif
-}
-
-static inline unsigned long _kc_msecs_to_jiffies(const unsigned int m)
-{
-        if (m > _kc_jiffies_to_msecs(MAX_JIFFY_OFFSET))
-                return MAX_JIFFY_OFFSET;
-#if HZ <= MSEC_PER_SEC && !(MSEC_PER_SEC % HZ)
-        return (m + (MSEC_PER_SEC / HZ) - 1) / (MSEC_PER_SEC / HZ);
-#elif HZ > MSEC_PER_SEC && !(HZ % MSEC_PER_SEC)
-        return m * (HZ / MSEC_PER_SEC);
-#else
-        return (m * HZ + MSEC_PER_SEC - 1) / MSEC_PER_SEC;
-#endif
-}
-#endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,7)
-
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,11)
-
-/* copied from linux kernel 2.6.12.6 /include/linux/pm.h */
-typedef int __bitwise pci_power_t;
-
-/* copied from linux kernel 2.6.12.6 /include/linux/pci.h */
-typedef u32 __bitwise pm_message_t;
-
-#define PCI_D0  ((pci_power_t __force) 0)
-#define PCI_D1  ((pci_power_t __force) 1)
-#define PCI_D2  ((pci_power_t __force) 2)
-#define PCI_D3hot   ((pci_power_t __force) 3)
-#define PCI_D3cold  ((pci_power_t __force) 4)
-#define PCI_POWER_ERROR ((pci_power_t __force) -1)
-
-/* copied from linux kernel 2.6.12.6 /drivers/pci/pci.c */
-/**
- * pci_choose_state - Choose the power state of a PCI device
- * @dev: PCI device to be suspended
- * @state: target sleep state for the whole system. This is the value
- *  that is passed to suspend() function.
- *
- * Returns PCI power state suitable for given device and given system
- * message.
- */
-
-pci_power_t pci_choose_state(struct pci_dev *dev, pm_message_t state)
-{
-        if (!pci_find_capability(dev, PCI_CAP_ID_PM))
-                return PCI_D0;
-
-        switch (state) {
-        case 0:
-                return PCI_D0;
-        case 3:
-                return PCI_D3hot;
-        default:
-                printk("They asked me for state %d\n", state);
-//      BUG();
-        }
-        return PCI_D0;
-}
-#endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,11)
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,9)
-/**
- * msleep_interruptible - sleep waiting for waitqueue interruptions
- * @msecs: Time in milliseconds to sleep for
- */
-#define msleep_interruptible _kc_msleep_interruptible
-unsigned long _kc_msleep_interruptible(unsigned int msecs)
-{
-        unsigned long timeout = _kc_msecs_to_jiffies(msecs);
-
-        while (timeout && !signal_pending(current)) {
-                set_current_state(TASK_INTERRUPTIBLE);
-                timeout = schedule_timeout(timeout);
-        }
-        return _kc_jiffies_to_msecs(timeout);
-}
-#endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,9)
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,7)
-/* copied from linux kernel 2.6.20 include/linux/sched.h */
-#ifndef __sched
-#define __sched     __attribute__((__section__(".sched.text")))
-#endif
-
-/* copied from linux kernel 2.6.20 kernel/timer.c */
-signed long __sched schedule_timeout_uninterruptible(signed long timeout)
-{
-        __set_current_state(TASK_UNINTERRUPTIBLE);
-        return schedule_timeout(timeout);
-}
-
-/* copied from linux kernel 2.6.20 include/linux/mii.h */
-#undef if_mii
-#define if_mii _kc_if_mii
-static inline struct mii_ioctl_data *if_mii(struct ifreq *rq)
-{
-        return (struct mii_ioctl_data *) &rq->ifr_ifru;
-}
-#endif  //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,7)
 
 int rtl8127_dump_tally_counter(struct rtl8127_private *tp, dma_addr_t paddr)
 {
@@ -632,9 +341,7 @@ rtl8127_get_hw_clo_ptr(struct rtl8127_tx_ring *ring)
         case 6:
                 return RTL_R32(tp, ring->hw_clo_ptr_reg);
         default:
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                 WARN_ON(1);
-#endif
                 return 0;
         }
 }
@@ -703,9 +410,7 @@ static void mdio_real_direct_write_phy_ocp(struct rtl8127_private *tp,
         u32 data32;
         int i;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18)
         WARN_ON_ONCE(RegAddr % 2);
-#endif
         data32 = RegAddr/2;
         data32 <<= OCPR_Addr_Reg_shift;
         data32 |= OCPR_Write | value;
@@ -796,9 +501,7 @@ static u32 mdio_real_direct_read_phy_ocp(struct rtl8127_private *tp,
         u32 data32;
         int i, value = 0;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18)
         WARN_ON_ONCE(RegAddr % 2);
-#endif
         data32 = RegAddr/2;
         data32 <<= OCPR_Addr_Reg_shift;
 
@@ -930,9 +633,7 @@ void rtl8127_mac_ocp_write(struct rtl8127_private *tp, u16 reg_addr, u16 value)
 {
         u32 data32;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18)
         WARN_ON_ONCE(reg_addr % 2);
-#endif
 
         data32 = reg_addr/2;
         data32 <<= OCPR_Addr_Reg_shift;
@@ -947,9 +648,7 @@ u16 rtl8127_mac_ocp_read(struct rtl8127_private *tp, u16 reg_addr)
         u32 data32;
         u16 data16 = 0;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18)
         WARN_ON_ONCE(reg_addr % 2);
-#endif
 
         data32 = reg_addr/2;
         data32 <<= OCPR_Addr_Reg_shift;
@@ -3141,7 +2840,6 @@ static void rtl8127_powerup_pll(struct net_device *dev)
         rtl8127_phy_power_up(dev);
 }
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,4,22)
 static void
 rtl8127_get_wol(struct net_device *dev,
                 struct ethtool_wolinfo *wol)
@@ -3201,7 +2899,6 @@ rtl8127_get_regs_len(struct net_device *dev)
 {
         return R8127_REGS_DUMP_SIZE;
 }
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,4,22)
 
 static void
 rtl8127_set_d0_speedup_speed(struct rtl8127_private *tp)
@@ -3345,14 +3042,9 @@ rtl8127_set_speed(struct net_device *dev,
         return ret;
 }
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,4,22)
 static int
 rtl8127_set_settings(struct net_device *dev,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
-                     struct ethtool_cmd *cmd
-#else
                      const struct ethtool_link_ksettings *cmd
-#endif
                     )
 {
         int ret;
@@ -3361,13 +3053,6 @@ rtl8127_set_settings(struct net_device *dev,
         u8 duplex;
         u64 supported = 0, advertising = 0;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
-        autoneg = cmd->autoneg;
-        speed = cmd->speed;
-        duplex = cmd->duplex;
-        supported = cmd->supported;
-        advertising = cmd->advertising;
-#else
         struct rtl8127_private *tp = netdev_priv(dev);
         const struct ethtool_link_settings *base = &cmd->base;
         autoneg = base->autoneg;
@@ -3399,7 +3084,6 @@ rtl8127_set_settings(struct net_device *dev,
                              cmd->link_modes.advertising))
                         advertising |= ADVERTISED_10000baseT_Full;
         }
-#endif
         if (advertising & ~supported)
                 return -EINVAL;
 
@@ -3407,77 +3091,6 @@ rtl8127_set_settings(struct net_device *dev,
 
         return ret;
 }
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0)
-static u32
-rtl8127_get_tx_csum(struct net_device *dev)
-{
-        u32 ret;
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-        ret = ((dev->features & NETIF_F_IP_CSUM) != 0);
-#else
-        ret = ((dev->features & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM)) != 0);
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-
-        return ret;
-}
-
-static u32
-rtl8127_get_rx_csum(struct net_device *dev)
-{
-        struct rtl8127_private *tp = netdev_priv(dev);
-        u32 ret;
-
-        ret = tp->cp_cmd & RxChkSum;
-
-        return ret;
-}
-
-static int
-rtl8127_set_tx_csum(struct net_device *dev,
-                    u32 data)
-{
-        struct rtl8127_private *tp = netdev_priv(dev);
-
-        if (tp->mcfg == CFG_METHOD_DEFAULT)
-                return -EOPNOTSUPP;
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-        if (data)
-                dev->features |= NETIF_F_IP_CSUM;
-        else
-                dev->features &= ~NETIF_F_IP_CSUM;
-#else
-        if (data)
-                dev->features |= (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
-        else
-                dev->features &= ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-
-        return 0;
-}
-
-static int
-rtl8127_set_rx_csum(struct net_device *dev,
-                    u32 data)
-{
-        struct rtl8127_private *tp = netdev_priv(dev);
-
-        if (tp->mcfg == CFG_METHOD_DEFAULT)
-                return -EOPNOTSUPP;
-
-        if (data)
-                tp->cp_cmd |= RxChkSum;
-        else
-                tp->cp_cmd &= ~RxChkSum;
-
-        RTL_W16(tp, CPlusCmd, tp->cp_cmd);
-
-        return 0;
-}
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0)
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,4,22)
 
 static u32
 rtl8127_rx_desc_opts1(struct rtl8127_private *tp,
@@ -3531,56 +3144,11 @@ static inline u32
 rtl8127_tx_vlan_tag(struct rtl8127_private *tp,
                     struct sk_buff *skb)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-        return (tp->vlgrp && vlan_tx_tag_present(skb)) ?
-               TxVlanTag | swab16(vlan_tx_tag_get(skb)) : 0x00;
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(4,0,0)
-        return (vlan_tx_tag_present(skb)) ?
-               TxVlanTag | swab16(vlan_tx_tag_get(skb)) : 0x00;
-#else
         return (skb_vlan_tag_present(skb)) ?
                TxVlanTag | swab16(skb_vlan_tag_get(skb)) : 0x00;
-#endif
 
         return 0;
 }
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-
-static void
-rtl8127_vlan_rx_register(struct net_device *dev,
-                         struct vlan_group *grp)
-{
-        struct rtl8127_private *tp = netdev_priv(dev);
-
-        tp->vlgrp = grp;
-
-        if (tp->vlgrp) {
-                tp->rtl8127_rx_config |= (EnableInnerVlan | EnableOuterVlan);
-                RTL_W32(tp, RxConfig, RTL_R32(tp, RxConfig) | (EnableInnerVlan | EnableOuterVlan))
-        } else {
-                tp->rtl8127_rx_config &= ~(EnableInnerVlan | EnableOuterVlan);
-                RTL_W32(tp, RxConfig, RTL_R32(tp, RxConfig) & ~(EnableInnerVlan | EnableOuterVlan))
-        }
-}
-
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-static void
-rtl8127_vlan_rx_kill_vid(struct net_device *dev,
-                         unsigned short vid)
-{
-        struct rtl8127_private *tp = netdev_priv(dev);
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,21)
-        if (tp->vlgrp)
-                tp->vlgrp->vlan_devices[vid] = NULL;
-#else
-        vlan_group_set_device(tp->vlgrp, vid, NULL);
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,21)
-}
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
 
 static int
 rtl8127_rx_vlan_skb(struct rtl8127_private *tp,
@@ -3590,19 +3158,8 @@ rtl8127_rx_vlan_skb(struct rtl8127_private *tp,
         u32 opts2 = le32_to_cpu(rtl8127_rx_desc_opts2(tp, desc));
         int ret = -1;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-        if (tp->vlgrp && (opts2 & RxVlanTag)) {
-                rtl8127_rx_hwaccel_skb(skb, tp->vlgrp,
-                                       swab16(opts2 & 0xffff));
-                ret = 0;
-        }
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
-        if (opts2 & RxVlanTag)
-                __vlan_hwaccel_put_tag(skb, swab16(opts2 & 0xffff));
-#else
         if (opts2 & RxVlanTag)
                 __vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), swab16(opts2 & 0xffff));
-#endif
 
         rtl8127_clear_rx_desc_opts2(tp, desc);
         return ret;
@@ -3626,8 +3183,6 @@ rtl8127_rx_vlan_skb(struct rtl8127_private *tp,
 }
 
 #endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 
 static netdev_features_t rtl8127_fix_features(struct net_device *dev,
                 netdev_features_t features)
@@ -3687,8 +3242,6 @@ static int rtl8127_set_features(struct net_device *dev,
         return 0;
 }
 
-#endif
-
 static u8 rtl8127_get_mdi_status(struct rtl8127_private *tp)
 {
         if (!tp->link_ok(tp->dev))
@@ -3701,11 +3254,7 @@ static u8 rtl8127_get_mdi_status(struct rtl8127_private *tp)
 }
 
 static void rtl8127_gset_xmii(struct net_device *dev,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
-                              struct ethtool_cmd *cmd
-#else
                               struct ethtool_link_ksettings *cmd
-#endif
                              )
 {
         struct rtl8127_private *tp = netdev_priv(dev);
@@ -3835,16 +3384,6 @@ static void rtl8127_gset_xmii(struct net_device *dev,
                 lpa_adv = 0;
         }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
-        cmd->supported = (u32)supported;
-        cmd->advertising = (u32)advertising;
-        cmd->autoneg = autoneg;
-        cmd->speed = speed;
-        cmd->duplex = duplex;
-        cmd->port = PORT_TP;
-        cmd->lp_advertising = (u32)lpa_adv;
-        cmd->eth_tp_mdix = rtl8127_get_mdi_status(tp);
-#else
         ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
                                                 supported);
         ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
@@ -3889,7 +3428,6 @@ static void rtl8127_gset_xmii(struct net_device *dev,
                                          cmd->link_modes.lp_advertising, 1);
         }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,0,0)
         /* Use ETHTOOL_LINK_MODE_2500baseT_Full_BIT instead of
            ETHTOOL_LINK_MODE_2500baseX_Full_BIT. */
         linkmode_mod_bit(ETHTOOL_LINK_MODE_2500baseX_Full_BIT,
@@ -3900,25 +3438,18 @@ static void rtl8127_gset_xmii(struct net_device *dev,
 
         linkmode_mod_bit(ETHTOOL_LINK_MODE_2500baseX_Full_BIT,
                          cmd->link_modes.lp_advertising, 0);
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(5,0,0) */
 
         cmd->base.autoneg = autoneg;
         cmd->base.speed = speed;
         cmd->base.duplex = duplex;
         cmd->base.port = PORT_TP;
         cmd->base.eth_tp_mdix = rtl8127_get_mdi_status(tp);
-#endif
         r8127_spin_unlock(&tp->phy_lock, flags);
 }
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,4,22)
 static int
 rtl8127_get_settings(struct net_device *dev,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
-                     struct ethtool_cmd *cmd
-#else
                      struct ethtool_link_ksettings *cmd
-#endif
                     )
 {
         struct rtl8127_private *tp = netdev_priv(dev);
@@ -4062,16 +3593,7 @@ static const char rtl8127_gstrings[][ETH_GSTRING_LEN] = {
         "tdu",
         "rdu",
 };
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,4,22)
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33)
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,4,22)
-static int rtl8127_get_stats_count(struct net_device *dev)
-{
-        return ARRAY_SIZE(rtl8127_gstrings);
-}
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,4,22)
-#else
 static int rtl8127_get_sset_count(struct net_device *dev, int sset)
 {
         switch (sset) {
@@ -4081,7 +3603,6 @@ static int rtl8127_get_sset_count(struct net_device *dev, int sset)
                 return -EOPNOTSUPP;
         }
 }
-#endif
 
 static void
 rtl8127_set_ring_size(struct rtl8127_private *tp, u32 rx, u32 tx)
@@ -4095,16 +3616,10 @@ rtl8127_set_ring_size(struct rtl8127_private *tp, u32 rx, u32 tx)
                 tp->tx_ring[i].num_tx_desc = tx;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0)
 static void rtl8127_get_ringparam(struct net_device *dev,
                                   struct ethtool_ringparam *ring,
                                   struct kernel_ethtool_ringparam *kernel_ring,
                                   struct netlink_ext_ack *extack)
-#else
-static void rtl8127_get_ringparam(struct net_device *dev,
-                                  struct ethtool_ringparam *ring)
-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0)
 {
         struct rtl8127_private *tp = netdev_priv(dev);
 
@@ -4114,15 +3629,10 @@ static void rtl8127_get_ringparam(struct net_device *dev,
         ring->tx_pending = tp->tx_ring[0].num_tx_desc;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0)
 static int rtl8127_set_ringparam(struct net_device *dev,
                                  struct ethtool_ringparam *ring,
                                  struct kernel_ethtool_ringparam *kernel_ring,
                                  struct netlink_ext_ack *extack)
-#else
-static int rtl8127_set_ringparam(struct net_device *dev,
-                                 struct ethtool_ringparam *ring)
-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0)
 {
         struct rtl8127_private *tp = netdev_priv(dev);
         u32 new_rx_count, new_tx_count;
@@ -4155,9 +3665,7 @@ static int rtl8127_set_ringparam(struct net_device *dev,
 
         return rc;
 }
-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,4,22)
 static void
 rtl8127_get_ethtool_stats(struct net_device *dev,
                           struct ethtool_stats *stats,
@@ -4229,7 +3737,6 @@ rtl8127_get_strings(struct net_device *dev,
                 break;
         }
 }
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,4,22)
 
 static int rtl_get_eeprom_len(struct net_device *dev)
 {
@@ -4300,38 +3807,6 @@ static u32 _kc_ethtool_op_get_link(struct net_device *dev)
 {
         return netif_carrier_ok(dev) ? 1 : 0;
 }
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0)
-#undef ethtool_op_get_sg
-#define ethtool_op_get_sg _kc_ethtool_op_get_sg
-static u32 _kc_ethtool_op_get_sg(struct net_device *dev)
-{
-#ifdef NETIF_F_SG
-        return (dev->features & NETIF_F_SG) != 0;
-#else
-        return 0;
-#endif
-}
-
-#undef ethtool_op_set_sg
-#define ethtool_op_set_sg _kc_ethtool_op_set_sg
-static int _kc_ethtool_op_set_sg(struct net_device *dev, u32 data)
-{
-        struct rtl8127_private *tp = netdev_priv(dev);
-
-        if (tp->mcfg == CFG_METHOD_DEFAULT)
-                return -EOPNOTSUPP;
-
-#ifdef NETIF_F_SG
-        if (data)
-                dev->features |= NETIF_F_SG;
-        else
-                dev->features &= ~NETIF_F_SG;
-#endif
-
-        return 0;
-}
-#endif
 
 static void
 rtl8127_set_eee_lpi_timer(struct rtl8127_private *tp)
@@ -4451,7 +3926,6 @@ static int rtl_nway_reset(struct net_device *dev)
         return ret;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 static u32
 rtl8127_device_lpi_t_to_ethtool_lpi_t(struct rtl8127_private *tp , u32 lpi_timer)
 {
@@ -4503,7 +3977,6 @@ rtl8127_device_lpi_t_to_ethtool_lpi_t(struct rtl8127_private *tp , u32 lpi_timer
         return to_us;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
 static void
 rtl8127_adv_to_linkmode(unsigned long *mode, u64 adv)
 {
@@ -4646,137 +4119,7 @@ out:
 
         return rc;
 }
-#else
-static int
-rtl_ethtool_get_eee(struct net_device *net, struct ethtool_eee *edata)
-{
-        struct rtl8127_private *tp = netdev_priv(net);
-        struct ethtool_eee *eee = &tp->eee;
-        u32 lp, adv, tx_lpi_timer, supported = 0;
-        unsigned long flags;
-        u16 val;
 
-        if (unlikely(tp->rtk_enable_diag))
-                return -EBUSY;
-
-        r8127_spin_lock(&tp->phy_lock, flags);
-
-        /* Get Supported EEE */
-        //val = rtl8127_mdio_direct_read_phy_ocp(tp, 0xA5C4);
-        //supported = mmd_eee_cap_to_ethtool_sup_t(val);
-        supported = eee->supported;
-
-        /* Get advertisement EEE */
-        adv = eee->advertised;
-
-        /* Get LP advertisement EEE */
-        val = rtl8127_mdio_direct_read_phy_ocp(tp, 0xA5D2);
-        lp = mmd_eee_adv_to_ethtool_adv_t(val);
-        val = rtl8127_mdio_direct_read_phy_ocp(tp, 0xA6D0);
-        if (val & RTK_LPA_EEE_ADVERTISE_2500FULL)
-                lp |= ADVERTISED_2500baseX_Full;
-
-        r8127_spin_unlock(&tp->phy_lock, flags);
-
-        /* Get EEE Tx LPI timer*/
-        tx_lpi_timer = rtl8127_device_lpi_t_to_ethtool_lpi_t(tp, eee->tx_lpi_timer);
-
-        val = rtl8127_mac_ocp_read(tp, 0xE040);
-        val &= BIT_1 | BIT_0;
-
-        edata->eee_enabled = !!val;
-        edata->eee_active = !!(supported & adv & lp);
-        edata->supported = supported;
-        edata->advertised = adv;
-        edata->lp_advertised = lp;
-        edata->tx_lpi_enabled = edata->eee_enabled;
-        edata->tx_lpi_timer = tx_lpi_timer;
-
-        return 0;
-}
-
-static int
-rtl_ethtool_set_eee(struct net_device *net, struct ethtool_eee *edata)
-{
-        struct rtl8127_private *tp = netdev_priv(net);
-        struct ethtool_eee *eee = &tp->eee;
-        unsigned long flags;
-        u32 advertising;
-        int rc = 0;
-
-        r8127_spin_lock(&tp->phy_lock, flags);
-
-        if (!HW_HAS_WRITE_PHY_MCU_RAM_CODE(tp) ||
-            tp->DASH) {
-                rc = -EOPNOTSUPP;
-                goto out;
-        }
-
-        if (unlikely(tp->rtk_enable_diag)) {
-                dev_printk(KERN_WARNING, tp_to_dev(tp), "Diag Enabled\n");
-                rc = -EBUSY;
-                goto out;
-        }
-
-        if (tp->autoneg != AUTONEG_ENABLE) {
-                dev_printk(KERN_WARNING, tp_to_dev(tp), "EEE requires autoneg\n");
-                rc = -EINVAL;
-                goto out;
-        }
-
-        /*
-        if (edata->tx_lpi_enabled) {
-        if (edata->tx_lpi_timer > tp->max_jumbo_frame_size ||
-            edata->tx_lpi_timer < ETH_MIN_MTU) {
-                dev_printk(KERN_WARNING, tp_to_dev(tp), "Valid LPI timer range is %d to %d. \n",
-                           ETH_MIN_MTU, tp->max_jumbo_frame_size);
-                rc = -EINVAL;
-                goto out;
-        }
-        }
-        */
-
-        advertising = tp->advertising;
-        if (!edata->advertised) {
-                edata->advertised = advertising & eee->supported;
-        } else if (edata->advertised & ~advertising) {
-                dev_printk(KERN_WARNING, tp_to_dev(tp), "EEE advertised %x must be a subset of autoneg advertised speeds %x\n",
-                           edata->advertised, advertising);
-                rc = -EINVAL;
-                goto out;
-        }
-
-        if (edata->advertised & ~eee->supported) {
-                dev_printk(KERN_WARNING, tp_to_dev(tp), "EEE advertised %x must be a subset of support %x\n",
-                           edata->advertised, eee->supported);
-                rc = -EINVAL;
-                goto out;
-        }
-
-        //tp->eee.eee_enabled = edata->eee_enabled;
-        //tp->eee_adv_t = ethtool_adv_to_mmd_eee_adv_t(edata->advertised);
-
-        eee->advertised = edata->advertised;
-        //eee->tx_lpi_enabled = edata->tx_lpi_enabled;
-        //eee->tx_lpi_timer = edata->tx_lpi_timer;
-        eee->eee_enabled = edata->eee_enabled;
-
-        if (eee->eee_enabled)
-                rtl8127_enable_eee(tp);
-        else
-                rtl8127_disable_eee(tp);
-
-        rtl_nway_reset(net);
-
-out:
-        r8127_spin_unlock(&tp->phy_lock, flags);
-
-        return rc;
-}
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0) */
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0) */
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 static void rtl8127_get_channels(struct net_device *dev,
                                  struct ethtool_channels *channel)
 {
@@ -4787,57 +4130,25 @@ static void rtl8127_get_channels(struct net_device *dev,
         channel->rx_count = tp->num_rx_rings;
         channel->tx_count = tp->num_tx_rings;
 }
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0) */
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,4,22)
 static const struct ethtool_ops rtl8127_ethtool_ops = {
         .get_drvinfo        = rtl8127_get_drvinfo,
         .get_regs_len       = rtl8127_get_regs_len,
         .get_link       = ethtool_op_get_link,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
         .get_ringparam      = rtl8127_get_ringparam,
         .set_ringparam      = rtl8127_set_ringparam,
-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
-        .get_settings       = rtl8127_get_settings,
-        .set_settings       = rtl8127_set_settings,
-#else
         .get_link_ksettings       = rtl8127_get_settings,
         .set_link_ksettings       = rtl8127_set_settings,
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(4,6,0)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
         .get_pauseparam     = rtl8127_get_pauseparam,
         .set_pauseparam     = rtl8127_set_pauseparam,
-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
         .get_msglevel       = rtl8127_get_msglevel,
         .set_msglevel       = rtl8127_set_msglevel,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0)
-        .get_rx_csum        = rtl8127_get_rx_csum,
-        .set_rx_csum        = rtl8127_set_rx_csum,
-        .get_tx_csum        = rtl8127_get_tx_csum,
-        .set_tx_csum        = rtl8127_set_tx_csum,
-        .get_sg         = ethtool_op_get_sg,
-        .set_sg         = ethtool_op_set_sg,
-#ifdef NETIF_F_TSO
-        .get_tso        = ethtool_op_get_tso,
-        .set_tso        = ethtool_op_set_tso,
-#endif //NETIF_F_TSO
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0)
         .get_regs       = rtl8127_get_regs,
         .get_wol        = rtl8127_get_wol,
         .set_wol        = rtl8127_set_wol,
         .get_strings        = rtl8127_get_strings,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33)
-        .get_stats_count    = rtl8127_get_stats_count,
-#else
         .get_sset_count     = rtl8127_get_sset_count,
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33)
         .get_ethtool_stats  = rtl8127_get_ethtool_stats,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
-#ifdef ETHTOOL_GPERMADDR
-        .get_perm_addr      = ethtool_op_get_perm_addr,
-#endif //ETHTOOL_GPERMADDR
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
         .get_eeprom     = rtl_get_eeprom,
         .get_eeprom_len     = rtl_get_eeprom_len,
 #ifdef ENABLE_RSS_SUPPORT
@@ -4848,24 +4159,17 @@ static const struct ethtool_ops rtl8127_ethtool_ops = {
         .get_rxfh		= rtl8127_get_rxfh,
         .set_rxfh		= rtl8127_set_rxfh,
 #endif //ENABLE_RSS_SUPPORT
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 #ifdef ENABLE_PTP_SUPPORT
         .get_ts_info        = rtl8127_get_ts_info,
 #else
         .get_ts_info        = ethtool_op_get_ts_info,
 #endif //ENABLE_PTP_SUPPORT
-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
         .get_eee = rtl_ethtool_get_eee,
         .set_eee = rtl_ethtool_set_eee,
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0) */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
         .get_channels		= rtl8127_get_channels,
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0) */
         .nway_reset = rtl_nway_reset,
 
 };
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,4,22)
 
 static void rtl8127_get_mac_version(struct rtl8127_private *tp)
 {
@@ -4977,9 +4281,7 @@ rtl8127_wait_phy_ups_resume(struct net_device *dev, u16 PhyState)
                         mdelay(1);
         }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18)
         WARN_ON_ONCE(i == 100);
-#endif
 }
 
 static void
@@ -6283,11 +5585,7 @@ static inline void rtl8127_request_esd_timer(struct net_device *dev)
 {
         struct rtl8127_private *tp = netdev_priv(dev);
         struct timer_list *timer = &tp->esd_timer;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
-        setup_timer(timer, rtl8127_esd_timer, (unsigned long)dev);
-#else
         timer_setup(timer, rtl8127_esd_timer, 0);
-#endif
         mod_timer(timer, jiffies + RTL8127_ESD_TIMEOUT);
 }
 */
@@ -6303,11 +5601,7 @@ static inline void rtl8127_request_link_timer(struct net_device *dev)
         struct rtl8127_private *tp = netdev_priv(dev);
         struct timer_list *timer = &tp->link_timer;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
-        setup_timer(timer, rtl8127_link_timer, (unsigned long)dev);
-#else
         timer_setup(timer, rtl8127_link_timer, 0);
-#endif
         mod_timer(timer, jiffies + RTL8127_LINK_TIMEOUT);
 }
 */
@@ -6329,13 +5623,7 @@ rtl8127_netpoll(struct net_device *dev)
 
                 disable_irq(irq->vector);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0)
                 irq->handler(irq->vector, r8127napi);
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-                irq->handler(irq->vector, r8127napi, NULL);
-#else
-                irq->handler(irq->vector, r8127napi);
-#endif
 
                 enable_irq(irq->vector);
         }
@@ -6673,23 +5961,14 @@ rtl8127_init_software_variable(struct net_device *dev)
                                 rtl8127_fc_full);
 
         tp->max_jumbo_frame_size = rtl_chip_info[tp->chipset].jumbo_frame_sz;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
         /* MTU range: 60 - hw-specific max */
         dev->min_mtu = ETH_MIN_MTU;
         dev->max_mtu = tp->max_jumbo_frame_size;
-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
 
         if (tp->mcfg != CFG_METHOD_DEFAULT) {
                 struct ethtool_keee *eee = &tp->eee;
 
                 eee->eee_enabled = eee_enable;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6,9,0)
-                eee->supported  = SUPPORTED_100baseT_Full |
-                                  SUPPORTED_1000baseT_Full |
-                                  SUPPORTED_2500baseX_Full;
-                eee->advertised = mmd_eee_adv_to_ethtool_adv_t(MDIO_EEE_1000T | MDIO_EEE_100TX);
-                eee->advertised |= SUPPORTED_2500baseX_Full;
-#else
                 linkmode_set_bit(ETHTOOL_LINK_MODE_100baseT_Full_BIT, eee->supported);
                 linkmode_set_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT, eee->supported);
                 linkmode_set_bit(ETHTOOL_LINK_MODE_2500baseT_Full_BIT, eee->supported);
@@ -6700,7 +5979,6 @@ rtl8127_init_software_variable(struct net_device *dev)
                 linkmode_set_bit(ETHTOOL_LINK_MODE_2500baseT_Full_BIT, eee->advertised);
                 linkmode_set_bit(ETHTOOL_LINK_MODE_5000baseT_Full_BIT, eee->advertised);
                 linkmode_set_bit(ETHTOOL_LINK_MODE_10000baseT_Full_BIT, eee->advertised);
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(6,9,0) */
                 eee->tx_lpi_enabled = eee_enable;
                 eee->tx_lpi_timer = dev->mtu + ETH_HLEN + 0x20;
         }
@@ -6734,11 +6012,7 @@ rtl8127_release_board(struct pci_dev *pdev,
 static void
 rtl8127_hw_address_set(struct net_device *dev, u8 mac_addr[MAC_ADDR_LEN])
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0)
         eth_hw_addr_set(dev, mac_addr);
-#else
-        memcpy(dev->dev_addr, mac_addr, MAC_ADDR_LEN);
-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0)
 }
 
 static int
@@ -6769,9 +6043,7 @@ rtl8127_get_mac_address(struct net_device *dev)
 
         /* keep the original MAC address */
         memcpy(tp->org_mac_addr, dev->dev_addr, MAC_ADDR_LEN);
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,13)
         memcpy(dev->perm_addr, dev->dev_addr, MAC_ADDR_LEN);
-#endif
         return 0;
 }
 
@@ -7487,7 +6759,6 @@ static int ethtool_ioctl(struct ifreq *ifr)
 }
 #endif //ETHTOOL_OPS_COMPAT
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0)
 static int rtl8127_siocdevprivate(struct net_device *dev, struct ifreq *ifr,
                                   void __user *data, int cmd)
 {
@@ -7536,7 +6807,6 @@ static int rtl8127_siocdevprivate(struct net_device *dev, struct ifreq *ifr,
 
         return ret;
 }
-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0)
 
 static int
 rtl8127_do_ioctl(struct net_device *dev,
@@ -7579,47 +6849,6 @@ rtl8127_do_ioctl(struct net_device *dev,
                         ret = -EOPNOTSUPP;
                 break;
 #endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
-#ifdef ENABLE_DASH_SUPPORT
-        case SIOCDEVPRIVATE_RTLDASH:
-                if (!netif_running(dev)) {
-                        ret = -ENODEV;
-                        break;
-                }
-                if (!capable(CAP_NET_ADMIN)) {
-                        ret = -EPERM;
-                        break;
-                }
-
-                ret = rtl8127_dash_ioctl(dev, ifr);
-                break;
-#endif
-
-#ifdef ENABLE_REALWOW_SUPPORT
-        case SIOCDEVPRIVATE_RTLREALWOW:
-                if (!netif_running(dev)) {
-                        ret = -ENODEV;
-                        break;
-                }
-
-                if (!capable(CAP_NET_ADMIN)) {
-                        ret = -EPERM;
-                        break;
-                }
-
-                ret = rtl8127_realwow_ioctl(dev, ifr);
-                break;
-#endif
-
-        case SIOCRTLTOOL:
-                if (!capable(CAP_NET_ADMIN)) {
-                        ret = -EPERM;
-                        break;
-                }
-
-                ret = rtl8127_tool_ioctl(tp, ifr);
-                break;
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 
         default:
                 ret = -EOPNOTSUPP;
@@ -7676,10 +6905,8 @@ rtl8127_init_board(struct pci_dev *pdev,
         /* dev zeroed in alloc_etherdev */
         dev = alloc_etherdev_mq(sizeof (*tp), R8127_MAX_QUEUES);
         if (dev == NULL) {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                 if (netif_msg_drv(&debug))
                         dev_err(&pdev->dev, "unable to alloc new ethernet\n");
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                 goto err_out;
         }
 
@@ -7690,27 +6917,21 @@ rtl8127_init_board(struct pci_dev *pdev,
         tp->pci_dev = pdev;
         tp->msg_enable = netif_msg_init(debug.msg_enable, R8127_MSG_DEFAULT);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
         if (!aspm)
                 pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S | PCIE_LINK_STATE_L1 |
                                        PCIE_LINK_STATE_CLKPM);
-#endif
 
         /* enable device (incl. PCI PM wakeup and hotplug setup) */
         rc = pci_enable_device(pdev);
         if (rc < 0) {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                 if (netif_msg_probe(tp))
                         dev_err(&pdev->dev, "enable failure\n");
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                 goto err_out_free_dev;
         }
 
         if (pci_set_mwi(pdev) < 0) {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                 if (netif_msg_drv(&debug))
                         dev_info(&pdev->dev, "Mem-Wr-Inval unavailable.\n");
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
         }
 
         /* save power state before pci_enable_device overwrites it */
@@ -7720,40 +6941,29 @@ rtl8127_init_board(struct pci_dev *pdev,
 
                 pci_read_config_word(pdev, pm_cap + PCI_PM_CTRL, &pwr_command);
         } else {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                 if (netif_msg_probe(tp))
                         dev_err(&pdev->dev, "PowerManagement capability not found.\n");
-#else
-                printk("PowerManagement capability not found.\n");
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
-
         }
 
         /* make sure PCI base addr 1 is MMIO */
         if (!(pci_resource_flags(pdev, 2) & IORESOURCE_MEM)) {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                 if (netif_msg_probe(tp))
                         dev_err(&pdev->dev, "region #1 not an MMIO resource, aborting\n");
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                 rc = -ENODEV;
                 goto err_out_mwi;
         }
         /* check for weird/broken PCI region reporting */
         if (pci_resource_len(pdev, 2) < R8127_REGS_SIZE) {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                 if (netif_msg_probe(tp))
                         dev_err(&pdev->dev, "Invalid PCI region size(s), aborting\n");
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                 rc = -ENODEV;
                 goto err_out_mwi;
         }
 
         rc = pci_request_regions(pdev, MODULENAME);
         if (rc < 0) {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                 if (netif_msg_probe(tp))
                         dev_err(&pdev->dev, "could not request regions.\n");
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                 goto err_out_mwi;
         }
 
@@ -7765,10 +6975,8 @@ rtl8127_init_board(struct pci_dev *pdev,
         } else {
                 rc = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
                 if (rc < 0) {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                         if (netif_msg_probe(tp))
                                 dev_err(&pdev->dev, "DMA configuration failed.\n");
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                         goto err_out_free_res;
                 }
         }
@@ -7776,10 +6984,8 @@ rtl8127_init_board(struct pci_dev *pdev,
         /* ioremap MMIO region */
         ioaddr = ioremap(pci_resource_start(pdev, 2), pci_resource_len(pdev, 2));
         if (ioaddr == NULL) {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                 if (netif_msg_probe(tp))
                         dev_err(&pdev->dev, "cannot remap MMIO, aborting\n");
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                 rc = -EIO;
                 goto err_out_free_res;
         }
@@ -7798,12 +7004,8 @@ rtl8127_init_board(struct pci_dev *pdev,
 
         if (i < 0) {
                 /* Unknown chip: assume array element #0, original RTL-8125 */
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                 if (netif_msg_probe(tp))
                         dev_printk(KERN_DEBUG, &pdev->dev, "unknown chip version, assuming %s\n", rtl_chip_info[0].name);
-#else
-                printk("Realtek unknown chip version, assuming %s\n", rtl_chip_info[0].name);
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
                 i++;
         }
 
@@ -7984,21 +7186,11 @@ exit:
 }
 /*
 static void
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
-rtl8127_esd_timer(unsigned long __opaque)
-#else
 rtl8127_esd_timer(struct timer_list *t)
-#endif
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
-        struct net_device *dev = (struct net_device *)__opaque;
-        struct rtl8127_private *tp = netdev_priv(dev);
-        struct timer_list *timer = &tp->esd_timer;
-#else
         struct rtl8127_private *tp = from_timer(tp, t, esd_timer);
         //struct net_device *dev = tp->dev;
         struct timer_list *timer = t;
-#endif
         rtl8127_esd_checker(tp);
 
         mod_timer(timer, jiffies + timeout);
@@ -8007,51 +7199,16 @@ rtl8127_esd_timer(struct timer_list *t)
 
 /*
 static void
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
-rtl8127_link_timer(unsigned long __opaque)
-#else
 rtl8127_link_timer(struct timer_list *t)
-#endif
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
-        struct net_device *dev = (struct net_device *)__opaque;
-        struct rtl8127_private *tp = netdev_priv(dev);
-        struct timer_list *timer = &tp->link_timer;
-#else
         struct rtl8127_private *tp = from_timer(tp, t, link_timer);
         struct net_device *dev = tp->dev;
         struct timer_list *timer = t;
-#endif
         rtl8127_check_link_status(dev);
 
         mod_timer(timer, jiffies + RTL8127_LINK_TIMEOUT);
 }
 */
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0)
-static int pci_enable_msix_range(struct pci_dev *dev, struct msix_entry *entries,
-                                 int minvec, int maxvec)
-{
-        int nvec = maxvec;
-        int rc;
-
-        if (maxvec < minvec)
-                return -ERANGE;
-
-        do {
-                rc = pci_enable_msix(dev, entries, nvec);
-                if (rc < 0) {
-                        return rc;
-                } else if (rc > 0) {
-                        if (rc < minvec)
-                                return -ENOSPC;
-                        nvec = rc;
-                }
-        } while (rc);
-
-        return nvec;
-}
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0) */
 
 static int rtl8127_enable_msix(struct rtl8127_private *tp)
 {
@@ -8135,7 +7292,6 @@ static int rtl8127_get_irq(struct pci_dev *pdev)
         return pci_irq_vector(pdev, 0);
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0)
 static void
 rtl8127_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
 {
@@ -8160,60 +7316,24 @@ rtl8127_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
         stats->tx_aborted_errors = le16_to_cpu(counters->tx_aborted);
         stats->rx_missed_errors = le16_to_cpu(counters->rx_missed);
 }
-#else
-/**
- *  rtl8127_get_stats - Get rtl8127 read/write statistics
- *  @dev: The Ethernet Device to get statistics for
- *
- *  Get TX/RX statistics for rtl8127
- */
-static struct
-net_device_stats *rtl8127_get_stats(struct net_device *dev)
-{
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-        struct rtl8127_private *tp = netdev_priv(dev);
-#endif
-        return &RTLDEV->stats;
-}
-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29)
 static const struct net_device_ops rtl8127_netdev_ops = {
         .ndo_open       = rtl8127_open,
         .ndo_stop       = rtl8127_close,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0)
         .ndo_get_stats64    = rtl8127_get_stats64,
-#else
-        .ndo_get_stats      = rtl8127_get_stats,
-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0)
         .ndo_start_xmit     = rtl8127_start_xmit,
         .ndo_tx_timeout     = rtl8127_tx_timeout,
         .ndo_change_mtu     = rtl8127_change_mtu,
         .ndo_set_mac_address    = rtl8127_set_mac_address,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
-        .ndo_do_ioctl       = rtl8127_do_ioctl,
-#else
         .ndo_siocdevprivate = rtl8127_siocdevprivate,
         .ndo_eth_ioctl      = rtl8127_do_ioctl,
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
-        .ndo_set_multicast_list = rtl8127_set_rx_mode,
-#else
         .ndo_set_rx_mode    = rtl8127_set_rx_mode,
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-#ifdef CONFIG_R8127_VLAN
-        .ndo_vlan_rx_register   = rtl8127_vlan_rx_register,
-#endif
-#else
         .ndo_fix_features   = rtl8127_fix_features,
         .ndo_set_features   = rtl8127_set_features,
-#endif
 #ifdef CONFIG_NET_POLL_CONTROLLER
         .ndo_poll_controller    = rtl8127_netpoll,
 #endif
 };
-#endif
 
 
 
@@ -8242,12 +7362,8 @@ static int rtl8127_poll(napi_ptr napi, napi_budget budget)
                         rtl8127_schedule_dash_work(tp);
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
                 if (RTL_NETIF_RX_COMPLETE(dev, napi, work_done) == FALSE)
                         return RTL_NAPI_RETURN_VALUE;
-#else
-                RTL_NETIF_RX_COMPLETE(dev, napi, work_done);
-#endif
                 /*
                  * 20040426: the barrier is not strictly required but the
                  * behavior of the irq handler could be less predictable
@@ -8286,12 +7402,8 @@ static int rtl8127_poll_msix_ring(napi_ptr napi, napi_budget budget)
                                 rtl8127_schedule_dash_work(tp);
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
                 if (RTL_NETIF_RX_COMPLETE(dev, napi, work_done) == FALSE)
                         return RTL_NAPI_RETURN_VALUE;
-#else
-                RTL_NETIF_RX_COMPLETE(dev, napi, work_done);
-#endif
                 /*
                  * 20040426: the barrier is not strictly required but the
                  * behavior of the irq handler could be less predictable
@@ -8323,12 +7435,8 @@ static int rtl8127_poll_msix_tx(napi_ptr napi, napi_budget budget)
         RTL_NAPI_QUOTA_UPDATE(dev, work_done, budget);
 
         if (work_done < work_to_do) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
                 if (RTL_NETIF_RX_COMPLETE(dev, napi, work_done) == FALSE)
                         return RTL_NAPI_RETURN_VALUE;
-#else
-                RTL_NETIF_RX_COMPLETE(dev, napi, work_done);
-#endif
                 /*
                  * 20040426: the barrier is not strictly required but the
                  * behavior of the irq handler could be less predictable
@@ -8355,11 +7463,7 @@ static int rtl8127_poll_msix_other(napi_ptr napi, napi_budget budget)
         (void)(dev);
         (void)(work_to_do);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
         RTL_NETIF_RX_COMPLETE(dev, napi, work_to_do);
-#else
-        RTL_NETIF_RX_COMPLETE(dev, napi, work_to_do);
-#endif
 
         rtl8127_enable_hw_layered_interrupt(tp, message_id);
 
@@ -8381,12 +7485,8 @@ static int rtl8127_poll_msix_rx(napi_ptr napi, napi_budget budget)
         RTL_NAPI_QUOTA_UPDATE(dev, work_done, budget);
 
         if (work_done < work_to_do) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
                 if (RTL_NETIF_RX_COMPLETE(dev, napi, work_done) == FALSE)
                         return RTL_NAPI_RETURN_VALUE;
-#else
-                RTL_NETIF_RX_COMPLETE(dev, napi, work_done);
-#endif
                 /*
                  * 20040426: the barrier is not strictly required but the
                  * behavior of the irq handler could be less predictable
@@ -8403,32 +7503,26 @@ static int rtl8127_poll_msix_rx(napi_ptr napi, napi_budget budget)
 
 void rtl8127_enable_napi(struct rtl8127_private *tp)
 {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
         int i;
 
         for (i = 0; i < tp->irq_nvecs; i++)
                 RTL_NAPI_ENABLE(tp->dev, &tp->r8127napi[i].napi);
-#endif
 }
 
 static void rtl8127_disable_napi(struct rtl8127_private *tp)
 {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
         int i;
 
         for (i = 0; i < tp->irq_nvecs; i++)
                 RTL_NAPI_DISABLE(tp->dev, &tp->r8127napi[i].napi);
-#endif
 }
 
 static void rtl8127_del_napi(struct rtl8127_private *tp)
 {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
         int i;
 
         for (i = 0; i < tp->irq_nvecs; i++)
                 RTL_NAPI_DEL((&tp->r8127napi[i]));
-#endif
 }
 
 static void rtl8127_init_napi(struct rtl8127_private *tp)
@@ -8535,12 +7629,10 @@ rtl8127_init_one(struct pci_dev *pdev,
         tp->phy_reset_pending = rtl8127_xmii_reset_pending;
         tp->link_ok = rtl8127_xmii_link_ok;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0)
         dev->tstats = devm_netdev_alloc_pcpu_stats(&pdev->dev,
                         struct pcpu_sw_netstats);
         if (!dev->tstats)
                 goto err_out_1;
-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0)
 
         rc = rtl8127_try_msi(tp);
         if (rc < 0) {
@@ -8552,9 +7644,7 @@ rtl8127_init_one(struct pci_dev *pdev,
 
         RTL_NET_DEVICE_OPS(rtl8127_netdev_ops);
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,4,22)
         SET_ETHTOOL_OPS(dev, &rtl8127_ethtool_ops);
-#endif
 
         dev->watchdog_timeo = RTL8127_TX_TIMEOUT;
         dev->irq = rtl8127_get_irq(pdev);
@@ -8565,9 +7655,6 @@ rtl8127_init_one(struct pci_dev *pdev,
 #ifdef CONFIG_R8127_VLAN
         if (tp->mcfg != CFG_METHOD_DEFAULT) {
                 dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-                dev->vlan_rx_kill_vid = rtl8127_vlan_rx_kill_vid;
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
         }
 #endif
 
@@ -8579,39 +7666,20 @@ rtl8127_init_one(struct pci_dev *pdev,
         tp->cp_cmd |= RTL_R16(tp, CPlusCmd);
         if (tp->mcfg != CFG_METHOD_DEFAULT) {
                 dev->features |= NETIF_F_IP_CSUM;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-                tp->cp_cmd |= RxChkSum;
-#else
                 dev->features |= NETIF_F_RXCSUM;
                 dev->features |= NETIF_F_SG | NETIF_F_TSO;
                 dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
                                    NETIF_F_RXCSUM | NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
                 dev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
                                      NETIF_F_HIGHDMA;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,15,0)
                 dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(3,15,0)
                 dev->hw_features |= NETIF_F_RXALL;
                 dev->hw_features |= NETIF_F_RXFCS;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
                 dev->hw_features |= NETIF_F_IPV6_CSUM | NETIF_F_TSO6;
                 dev->features |= NETIF_F_IPV6_CSUM;
                 dev->features |= NETIF_F_TSO6;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,19,0)
                 netif_set_tso_max_size(dev, LSO_64K);
                 netif_set_tso_max_segs(dev, NIC_MAX_PHYS_BUF_COUNT_LSO2);
-#else //LINUX_VERSION_CODE >= KERNEL_VERSION(5,19,0)
-                netif_set_gso_max_size(dev, LSO_64K);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
-                dev->gso_max_segs = NIC_MAX_PHYS_BUF_COUNT_LSO2;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,7,0)
-                dev->gso_min_segs = NIC_MIN_PHYS_BUF_COUNT;
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(4,7,0)
-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(5,19,0)
-
-#endif //LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
 
 #ifdef ENABLE_RSS_SUPPORT
                 if (tp->EnableRss) {
@@ -9037,19 +8105,6 @@ rtl8127_hw_set_rx_packet_filter(struct net_device *dev)
                 rx_mode = AcceptBroadcast | AcceptMulticast | AcceptMyPhys;
                 mc_filter[1] = mc_filter[0] = 0xffffffff;
         } else {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
-                struct dev_mc_list *mclist;
-                unsigned int i;
-
-                rx_mode = AcceptBroadcast | AcceptMyPhys;
-                mc_filter[1] = mc_filter[0] = 0;
-                for (i = 0, mclist = dev->mc_list; mclist && i < dev->mc_count;
-                     i++, mclist = mclist->next) {
-                        int bit_nr = ether_crc(ETH_ALEN, mclist->dmi_addr) >> 26;
-                        mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
-                        rx_mode |= AcceptMulticast;
-                }
-#else
                 struct netdev_hw_addr *ha;
 
                 rx_mode = AcceptBroadcast | AcceptMyPhys;
@@ -9059,7 +8114,6 @@ rtl8127_hw_set_rx_packet_filter(struct net_device *dev)
                         mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
                         rx_mode |= AcceptMulticast;
                 }
-#endif
         }
 
         if (dev->features & NETIF_F_RXALL)
@@ -9344,11 +8398,7 @@ rtl8127_hw_config(struct net_device *dev)
                         Force_rxflow_en | Force_txflow_en | Cxpl_dbg_sel |
                         ASF | Macdbgo_sel);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-        RTL_W16(tp, CPlusCmd, tp->cp_cmd);
-#else
         rtl8127_hw_set_features(dev, dev->features);
-#endif
         rtl8127_set_rms(tp, tp->rms);
 
         rtl8127_disable_rxdvgate(dev);
@@ -9415,13 +8465,6 @@ rtl8127_change_mtu(struct net_device *dev,
         struct rtl8127_private *tp = netdev_priv(dev);
         int ret = 0;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
-        if (new_mtu < ETH_MIN_MTU)
-                return -EINVAL;
-        else if (new_mtu > tp->max_jumbo_frame_size)
-                new_mtu = tp->max_jumbo_frame_size;
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
-
         dev->mtu = new_mtu;
 
         tp->eee.tx_lpi_timer = dev->mtu + ETH_HLEN + 0x20;
@@ -9448,9 +8491,7 @@ rtl8127_change_mtu(struct net_device *dev,
         //mod_timer(&tp->esd_timer, jiffies + RTL8127_ESD_TIMEOUT);
         //mod_timer(&tp->link_timer, jiffies + RTL8127_LINK_TIMEOUT);
 out:
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
         netdev_update_features(dev);
-#endif
 
 err_out:
         return ret;
@@ -9893,9 +8934,7 @@ rtl8127_tx_clear_range(struct rtl8127_private *tp,
                        unsigned int n)
 {
         unsigned int i;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
         struct net_device *dev = tp->dev;
-#endif
 
         for (i = 0; i < n; i++) {
                 unsigned int entry = (start + i) % ring->num_tx_desc;
@@ -9928,45 +8967,6 @@ rtl8127_tx_clear(struct rtl8127_private *tp)
         }
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
-static void rtl8127_schedule_reset_work(struct rtl8127_private *tp)
-{
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
-        set_bit(R8127_FLAG_TASK_RESET_PENDING, tp->task_flags);
-        schedule_delayed_work(&tp->reset_task, 4);
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
-}
-
-static void rtl8127_schedule_esd_work(struct rtl8127_private *tp)
-{
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
-        set_bit(R8127_FLAG_TASK_ESD_CHECK_PENDING, tp->task_flags);
-        schedule_delayed_work(&tp->esd_task, RTL8127_ESD_TIMEOUT);
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
-}
-
-static void rtl8127_schedule_linkchg_work(struct rtl8127_private *tp)
-{
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
-        set_bit(R8127_FLAG_TASK_LINKCHG_CHECK_PENDING, tp->task_flags);
-        schedule_delayed_work(&tp->linkchg_task, 4);
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
-}
-
-static void rtl8127_schedule_dash_work(struct rtl8127_private *tp)
-{
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
-        set_bit(R8125_FLAG_TASK_DASH_CHECK_PENDING, tp->task_flags);
-        schedule_delayed_work(&tp->dash_task, RTL8127_DASH_TIMEOUT);
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
-}
-
-#define rtl8127_cancel_schedule_reset_work(a)
-#define rtl8127_cancel_schedule_esd_work(a)
-#define rtl8127_cancel_schedule_linkchg_work(a)
-#define rtl8127_cancel_schedule_dash_work(a)
-
-#else
 static void rtl8127_schedule_reset_work(struct rtl8127_private *tp)
 {
         set_bit(R8127_FLAG_TASK_RESET_PENDING, tp->task_flags);
@@ -10030,21 +9030,13 @@ static void rtl8127_cancel_schedule_dash_work(struct rtl8127_private *tp)
 
         cancel_delayed_work_sync(&tp->dash_task);
 }
-#endif
 
 static void rtl8127_init_all_schedule_work(struct rtl8127_private *tp)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
-        INIT_WORK(&tp->reset_task, rtl8127_reset_task, dev);
-        INIT_WORK(&tp->esd_task, rtl8127_esd_task, dev);
-        INIT_WORK(&tp->linkchg_task, rtl8127_linkchg_task, dev);
-        INIT_WORK(&tp->dash_task, rtl8127_dash_task, dev);
-#else
         INIT_DELAYED_WORK(&tp->reset_task, rtl8127_reset_task);
         INIT_DELAYED_WORK(&tp->esd_task, rtl8127_esd_task);
         INIT_DELAYED_WORK(&tp->linkchg_task, rtl8127_linkchg_task);
         INIT_DELAYED_WORK(&tp->dash_task, rtl8127_dash_task);
-#endif
 }
 
 static void rtl8127_cancel_all_schedule_work(struct rtl8127_private *tp)
@@ -10075,10 +9067,8 @@ _rtl8127_wait_for_quiescence(struct net_device *dev)
         /* Wait for any pending NAPI task to complete */
         rtl8127_disable_napi(tp);
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,5,67)
         /* Give a racing hard_start_xmit a few cycles to complete. */
         synchronize_net();
-#endif
 
         rtl8127_irq_mask_and_ack(tp);
 
@@ -10098,18 +9088,11 @@ rtl8127_wait_for_quiescence(struct net_device *dev)
         rtl8127_enable_napi(tp);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
-static void rtl8127_reset_task(void *_data)
-{
-        struct net_device *dev = _data;
-        struct rtl8127_private *tp = netdev_priv(dev);
-#else
 static void rtl8127_reset_task(struct work_struct *work)
 {
         struct rtl8127_private *tp =
                 container_of(work, struct rtl8127_private, reset_task.work);
         struct net_device *dev = tp->dev;
-#endif
         int i;
 
         rtnl_lock();
@@ -10164,18 +9147,11 @@ out_unlock:
         rtnl_unlock();
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
-static void rtl8127_esd_task(void *_data)
-{
-        struct net_device *dev = _data;
-        struct rtl8127_private *tp = netdev_priv(dev);
-#else
 static void rtl8127_esd_task(struct work_struct *work)
 {
         struct rtl8127_private *tp =
                 container_of(work, struct rtl8127_private, esd_task.work);
         struct net_device *dev = tp->dev;
-#endif
         rtnl_lock();
 
         if (!netif_running(dev) ||
@@ -10191,18 +9167,11 @@ out_unlock:
         rtnl_unlock();
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
-static void rtl8127_linkchg_task(void *_data)
-{
-        struct net_device *dev = _data;
-        //struct rtl8127_private *tp = netdev_priv(dev);
-#else
 static void rtl8127_linkchg_task(struct work_struct *work)
 {
         struct rtl8127_private *tp =
                 container_of(work, struct rtl8127_private, linkchg_task.work);
         struct net_device *dev = tp->dev;
-#endif
         rtnl_lock();
 
         if (!netif_running(dev) ||
@@ -10216,18 +9185,11 @@ out_unlock:
         rtnl_unlock();
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
-static void rtl8127_dash_task(void *_data)
-{
-        struct net_device *dev = _data;
-        //struct rtl8127_private *tp = netdev_priv(dev);
-#else
 static void rtl8127_dash_task(struct work_struct *work)
 {
         struct rtl8127_private *tp =
                 container_of(work, struct rtl8127_private, dash_task.work);
         struct net_device *dev = tp->dev;
-#endif
         rtnl_lock();
 
         if (!netif_running(dev) ||
@@ -10243,13 +9205,8 @@ out_unlock:
         rtnl_unlock();
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
 static void
 rtl8127_tx_timeout(struct net_device *dev, unsigned int txqueue)
-#else
-static void
-rtl8127_tx_timeout(struct net_device *dev)
-#endif
 {
         struct rtl8127_private *tp = netdev_priv(dev);
 
@@ -10296,13 +9253,8 @@ rtl8127_xmit_frags(struct rtl8127_private *tp,
                 entry = (entry + 1) % ring->num_tx_desc;
 
                 txd = ring->TxDescArray + entry;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,2,0)
-                len = frag->size;
-                addr = ((void *) page_address(frag->page)) + frag->page_offset;
-#else
                 len = skb_frag_size(frag);
                 addr = skb_frag_address(frag);
-#endif
                 mapping = dma_map_single(tp_to_dev(tp), addr, len, DMA_TO_DEVICE);
 
                 if (unlikely(dma_mapping_error(tp_to_dev(tp), mapping))) {
@@ -10338,18 +9290,7 @@ err_out:
 static inline
 __be16 get_protocol(struct sk_buff *skb)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
         return vlan_get_protocol(skb);
-#else
-        __be16 protocol;
-
-        if (skb->protocol == htons(ETH_P_8021Q))
-                protocol = vlan_eth_hdr(skb)->h_vlan_encapsulated_proto;
-        else
-                protocol = skb->protocol;
-
-        return protocol;
-#endif
 }
 
 static inline
@@ -10386,14 +9327,9 @@ static bool rtl8127_skb_pad_with_len(struct sk_buff *skb, unsigned int len)
 
 static bool rtl8127_skb_pad(struct sk_buff *skb)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
-        return rtl8127_skb_pad_with_len(skb, ETH_ZLEN);
-#else
         return !eth_skb_pad(skb);
-#endif
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0)
 /* msdn_giant_send_check()
  * According to the document of microsoft, the TCP Pseudo Header excludes the
  * packet length for IPv6 TCP large packets.
@@ -10416,7 +9352,6 @@ static int msdn_giant_send_check(struct sk_buff *skb)
 
         return ret;
 }
-#endif
 
 static bool rtl8127_require_pad_ptp_pkt(struct rtl8127_private *tp)
 {
@@ -10495,13 +9430,8 @@ rtl8127_tso_csum(struct sk_buff *skb,
         u8 sw_calc_csum = false;
         u8 check_patch_required = true;
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
         if (dev->features & (NETIF_F_TSO | NETIF_F_TSO6)) {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
-                u32 mss = skb_shinfo(skb)->tso_size;
-#else
                 u32 mss = skb_shinfo(skb)->gso_size;
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
 
                 /* TCP Segmentation Offload (or TCP Large Send) */
                 if (mss) {
@@ -10532,10 +9462,8 @@ rtl8127_tso_csum(struct sk_buff *skb,
                                 }
                                 break;
                         case __constant_htons(ETH_P_IPV6):
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0)
                                 if (msdn_giant_send_check(skb))
                                         return false;
-#endif
                                 if (l4_offset <= GTTCPHO_MAX) {
                                         opts[0] |= GiantSendv6;
                                         opts[0] |= l4_offset << GTTCPHO_SHIFT;
@@ -10562,21 +9490,8 @@ rtl8127_tso_csum(struct sk_buff *skb,
                         return true;
                 }
         }
-#endif //LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
 
         if (skb->ip_summed == CHECKSUM_PARTIAL) {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-                const struct iphdr *ip = skb->nh.iph;
-
-                if (dev->features & NETIF_F_IP_CSUM) {
-                        if (ip->protocol == IPPROTO_TCP)
-                                csum_cmd = tp->tx_ip_csum_cmd | tp->tx_tcp_csum_cmd;
-                        else if (ip->protocol == IPPROTO_UDP)
-                                csum_cmd = tp->tx_ip_csum_cmd | tp->tx_udp_csum_cmd;
-                        else if (ip->protocol == IPPROTO_IP)
-                                csum_cmd = tp->tx_ip_csum_cmd;
-                }
-#else
                 u8 ip_protocol = IPPROTO_RAW;
 
                 switch (get_protocol(skb)) {
@@ -10605,12 +9520,9 @@ rtl8127_tso_csum(struct sk_buff *skb,
                         csum_cmd |= tp->tx_tcp_csum_cmd;
                 else if (ip_protocol == IPPROTO_UDP)
                         csum_cmd |= tp->tx_udp_csum_cmd;
-#endif
                 if (csum_cmd == 0) {
                         sw_calc_csum = true;
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
                         WARN_ON(1); /* we need a WARN() */
-#endif
                 }
 
                 if (ip_protocol == IPPROTO_TCP)
@@ -10641,13 +9553,7 @@ rtl8127_tso_csum(struct sk_buff *skb,
         }
 
         if (sw_calc_csum) {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,10) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,7)
-                skb_checksum_help(&skb, 0);
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,10)
-                skb_checksum_help(skb, 0);
-#else
                 skb_checksum_help(skb);
-#endif
         } else
                 opts[1] |= csum_cmd;
 
@@ -10793,11 +9699,7 @@ rtl8127_start_xmit(struct sk_buff *skb,
 
         netdev_tx_sent_queue(txring_txq(ring), bytecount);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,5,0)
-        dev->trans_start = jiffies;
-#else
         skb_tx_timestamp(skb);
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(3,5,0)
 
         /* rtl_tx needs to see descriptor changes before updated tp->cur_tx */
         smp_wmb();
@@ -11131,9 +10033,7 @@ rtl8127_try_rx_copy(struct rtl8127_private *tp,
                 data = sk_buff[0]->data;
                 if (!R8127_USE_NAPI_ALLOC_SKB)
                     skb_reserve(skb, R8127_RX_ALIGN);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,37)
                 prefetch(data - R8127_RX_ALIGN);
-#endif
                 eth_copy_and_sum(skb, data, pkt_size, 0);
                 *sk_buff = skb;
                 rtl8127_mark_to_asic(tp, desc, rx_buf_sz);
@@ -11149,11 +10049,7 @@ rtl8127_rx_skb(struct rtl8127_private *tp,
                struct sk_buff *skb,
                u32 ring_index)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29)
-        netif_receive_skb(skb);
-#else
         napi_gro_receive(&tp->r8127napi[ring_index].napi, skb);
-#endif
 }
 
 static int
@@ -11444,9 +10340,7 @@ rtl8127_rx_interrupt(struct net_device *dev,
                                         rx_buf_phy_addr, tp->rx_buf_sz,
                                         DMA_FROM_DEVICE);
                 rx_buf = ring->Rx_skbuff[entry]->data;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,37)
                 prefetch(rx_buf - R8127_RX_ALIGN);
-#endif
                 eth_copy_and_sum(skb, rx_buf, pkt_size, 0);
 
                 dma_sync_single_for_device(tp_to_dev(tp), rx_buf_phy_addr,
@@ -11485,9 +10379,6 @@ rtl8127_rx_interrupt(struct net_device *dev,
                 if (rtl8127_rx_vlan_skb(tp, desc, skb) < 0)
                         rtl8127_rx_skb(tp, skb, ring_index);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,11,0)
-                dev->last_rx = jiffies;
-#endif //LINUX_VERSION_CODE < KERNEL_VERSION(4,11,0)
                 total_rx_packets++;
 
 #ifdef ENABLE_PAGE_REUSE
@@ -11574,11 +10465,7 @@ rtl8127_get_linkchg_message_id(struct rtl8127_private *tp)
  *The interrupt handler does all of the Rx thread work and cleans up after
  *the Tx thread.
  */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-static irqreturn_t rtl8127_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
-#else
 static irqreturn_t rtl8127_interrupt(int irq, void *dev_instance)
-#endif
 {
         struct r8127_napi *r8127napi = dev_instance;
         struct rtl8127_private *tp = r8127napi->priv;
@@ -11636,11 +10523,7 @@ static irqreturn_t rtl8127_interrupt(int irq, void *dev_instance)
         return IRQ_RETVAL(handled);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-static irqreturn_t rtl8127_interrupt_msix(int irq, void *dev_instance, struct pt_regs *regs)
-#else
 static irqreturn_t rtl8127_interrupt_msix(int irq, void *dev_instance)
-#endif
 {
         struct r8127_napi *r8127napi = dev_instance;
         struct rtl8127_private *tp = r8127napi->priv;
@@ -11747,7 +10630,6 @@ int rtl8127_close(struct net_device *dev)
         return 0;
 }
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,11)
 static void rtl8127_shutdown(struct pci_dev *pdev)
 {
         struct net_device *dev = pci_get_drvdata(pdev);
@@ -11777,31 +10659,15 @@ static void rtl8127_shutdown(struct pci_dev *pdev)
                 pci_set_power_state(pdev, PCI_D3hot);
         }
 }
-#endif
 
 #ifdef CONFIG_PM
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,11)
-static int
-rtl8127_suspend(struct pci_dev *pdev, u32 state)
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29)
 static int
 rtl8127_suspend(struct device *device)
-#else
-static int
-rtl8127_suspend(struct pci_dev *pdev, pm_message_t state)
-#endif
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29)
         struct pci_dev *pdev = to_pci_dev(device);
         struct net_device *dev = pci_get_drvdata(pdev);
-#else
-        struct net_device *dev = pci_get_drvdata(pdev);
-#endif
         struct rtl8127_private *tp = netdev_priv(dev);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,10)
-        u32 pci_pm_state = pci_choose_state(pdev, state);
-#endif
         rtnl_lock();
 
         if (!netif_running(dev))
@@ -11833,14 +10699,7 @@ out:
 
         pci_disable_device(pdev);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,10)
-        pci_save_state(pdev, &pci_pm_state);
-#else
         pci_save_state(pdev);
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29)
-        pci_enable_wake(pdev, pci_choose_state(pdev, state), tp->wol_enabled);
-#endif
 
         pci_prepare_to_sleep(pdev);
 
@@ -11868,24 +10727,12 @@ static int rtl8127_wait_phy_nway_complete_sleep(struct rtl8127_private *tp)
         return -1;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29)
-static int
-rtl8127_resume(struct pci_dev *pdev)
-#else
 static int
 rtl8127_resume(struct device *device)
-#endif
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29)
         struct pci_dev *pdev = to_pci_dev(device);
         struct net_device *dev = pci_get_drvdata(pdev);
-#else
-        struct net_device *dev = pci_get_drvdata(pdev);
-#endif
         struct rtl8127_private *tp = netdev_priv(dev);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,10)
-        u32 pci_pm_state = PCI_D0;
-#endif
         unsigned long flags;
         u32 err;
 
@@ -11896,11 +10743,7 @@ rtl8127_resume(struct device *device)
                 dev_err(&pdev->dev, "Cannot enable PCI device from suspend\n");
                 goto out_unlock;
         }
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,10)
-        pci_restore_state(pdev, &pci_pm_state);
-#else
         pci_restore_state(pdev);
-#endif
         pci_enable_wake(pdev, PCI_D0, 0);
 
         /* restore last modified mac address */
@@ -11942,8 +10785,6 @@ out_unlock:
         return err;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29)
-
 static struct dev_pm_ops rtl8127_pm_ops = {
         .suspend = rtl8127_suspend,
         .resume = rtl8127_resume,
@@ -11954,8 +10795,6 @@ static struct dev_pm_ops rtl8127_pm_ops = {
 };
 
 #define RTL8127_PM_OPS	(&rtl8127_pm_ops)
-
-#endif
 
 #else /* !CONFIG_PM */
 
@@ -11968,16 +10807,9 @@ static struct pci_driver rtl8127_pci_driver = {
         .id_table   = rtl8127_pci_tbl,
         .probe      = rtl8127_init_one,
         .remove     = __devexit_p(rtl8127_remove_one),
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,11)
         .shutdown   = rtl8127_shutdown,
-#endif
 #ifdef CONFIG_PM
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29)
-        .suspend    = rtl8127_suspend,
-        .resume     = rtl8127_resume,
-#else
         .driver.pm	= RTL8127_PM_OPS,
-#endif
 #endif
 };
 
@@ -11986,12 +10818,7 @@ rtl8127_init_module(void)
 {
         int ret = 0;
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
-
         ret = pci_register_driver(&rtl8127_pci_driver);
-#else
-        ret = pci_module_init(&rtl8127_pci_driver);
-#endif
 
         return ret;
 }
