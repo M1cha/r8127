@@ -7628,16 +7628,6 @@ rtl8127_remove_one(struct pci_dev *pdev)
         pci_set_drvdata(pdev, NULL);
 }
 
-#ifdef ENABLE_PAGE_REUSE
-static inline unsigned int rtl8127_rx_page_order(unsigned rx_buf_sz, unsigned page_size)
-{
-        unsigned truesize = SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) +
-                            SKB_DATA_ALIGN(rx_buf_sz + R8127_RX_ALIGN);
-
-        return get_order(truesize * 2);
-}
-#endif //ENABLE_PAGE_REUSE
-
 static void
 rtl8127_set_rxbufsize(struct rtl8127_private *tp,
                       struct net_device *dev)
@@ -7651,10 +7641,6 @@ rtl8127_set_rxbufsize(struct rtl8127_private *tp,
 #ifdef ENABLE_RX_PACKET_FRAGMENT
         tp->rx_buf_sz =  SKB_DATA_ALIGN(RX_BUF_SIZE);
 #endif //ENABLE_RX_PACKET_FRAGMENT
-#ifdef ENABLE_PAGE_REUSE
-        tp->rx_buf_page_order = rtl8127_rx_page_order(tp->rx_buf_sz, PAGE_SIZE);
-        tp->rx_buf_page_size = rtl8127_rx_page_size(tp->rx_buf_page_order);
-#endif //ENABLE_PAGE_REUSE
 }
 
 static void
@@ -8403,110 +8389,6 @@ rtl8127_map_to_asic(struct rtl8127_private *tp,
         rtl8127_mark_to_asic(tp, desc, rx_buf_sz);
 }
 
-#ifdef ENABLE_PAGE_REUSE
-
-static int
-rtl8127_alloc_rx_page(struct rtl8127_private *tp, struct rtl8127_rx_ring *ring,
-                      struct rtl8127_rx_buffer *rxb)
-{
-        struct page *page;
-        dma_addr_t dma;
-        unsigned int order = tp->rx_buf_page_order;
-
-        //get free page
-        page = dev_alloc_pages(order);
-
-        if (unlikely(!page))
-                return -ENOMEM;
-
-        dma = dma_map_page_attrs(&tp->pci_dev->dev, page, 0,
-                                 tp->rx_buf_page_size,
-                                 DMA_FROM_DEVICE,
-                                 (DMA_ATTR_SKIP_CPU_SYNC | DMA_ATTR_WEAK_ORDERING));
-
-        if (unlikely(dma_mapping_error(&tp->pci_dev->dev, dma))) {
-                __free_pages(page, order);
-                return -ENOMEM;
-        }
-
-        rxb->page = page;
-        rxb->data = page_address(page);
-        rxb->page_offset = ring->rx_offset;
-        rxb->dma = dma;
-
-        //after page alloc, page refcount already = 1
-
-        return 0;
-}
-
-static void
-rtl8127_free_rx_page(struct rtl8127_private *tp, struct rtl8127_rx_buffer *rxb)
-{
-        if (!rxb->page)
-                return;
-
-        dma_unmap_page_attrs(&tp->pci_dev->dev, rxb->dma,
-                             tp->rx_buf_page_size,
-                             DMA_FROM_DEVICE,
-                             (DMA_ATTR_SKIP_CPU_SYNC | DMA_ATTR_WEAK_ORDERING));
-        __free_pages(rxb->page, tp->rx_buf_page_order);
-        rxb->page = NULL;
-}
-
-static void
-_rtl8127_rx_clear(struct rtl8127_private *tp, struct rtl8127_rx_ring *ring)
-{
-        int i;
-        struct rtl8127_rx_buffer *rxb;
-
-        for (i = 0; i < ring->num_rx_desc; i++) {
-                rxb = &ring->rx_buffer[i];
-                if (rxb->skb) {
-                        dev_kfree_skb(rxb->skb);
-                        rxb->skb = NULL;
-                }
-                rtl8127_free_rx_page(tp, rxb);
-        }
-}
-
-static u32
-rtl8127_rx_fill(struct rtl8127_private *tp,
-                struct rtl8127_rx_ring *ring,
-                struct net_device *dev,
-                u32 start,
-                u32 end,
-                u8 in_intr)
-{
-        u32 cur;
-        struct rtl8127_rx_buffer *rxb;
-
-        for (cur = start; end - cur > 0; cur++) {
-                int ret, i = cur % ring->num_rx_desc;
-
-                rxb = &ring->rx_buffer[i];
-                if (rxb->page)
-                        continue;
-
-                ret = rtl8127_alloc_rx_page(tp, ring, rxb);
-                if (ret)
-                        break;
-
-                dma_sync_single_range_for_device(tp_to_dev(tp),
-                                                 rxb->dma,
-                                                 rxb->page_offset,
-                                                 tp->rx_buf_sz,
-                                                 DMA_FROM_DEVICE);
-
-                rtl8127_map_to_asic(tp, ring,
-                                    rtl8127_get_rxdesc(tp, ring->RxDescArray, i),
-                                    rxb->dma + rxb->page_offset,
-                                    tp->rx_buf_sz, i);
-        }
-        return cur - start;
-}
-
-#else //ENABLE_PAGE_REUSE
-
 static void
 rtl8127_free_rx_skb(struct rtl8127_private *tp,
                     struct rtl8127_rx_ring *ring,
@@ -8613,8 +8495,6 @@ rtl8127_rx_fill(struct rtl8127_private *tp,
         }
         return cur - start;
 }
-
-#endif //ENABLE_PAGE_REUSE
 
 void
 rtl8127_rx_clear(struct rtl8127_private *tp)
@@ -8723,11 +8603,7 @@ rtl8127_init_ring(struct net_device *dev)
 
         for (i = 0; i < tp->num_rx_rings; i++) {
                 struct rtl8127_rx_ring *ring = &tp->rx_ring[i];
-#ifdef ENABLE_PAGE_REUSE
-                ring->rx_offset = R8127_RX_ALIGN;
-#else
                 memset(ring->Rx_skbuff, 0x0, sizeof(ring->Rx_skbuff));
-#endif //ENABLE_PAGE_REUSE
                 if (rtl8127_rx_fill(tp, ring, dev, 0, ring->num_rx_desc, 0) != ring->num_rx_desc)
                         goto err_out;
 
@@ -9893,96 +9769,6 @@ rtl8127_check_rx_desc_error(struct net_device *dev,
         return ret;
 }
 
-#ifdef ENABLE_PAGE_REUSE
-
-static inline bool
-rtl8127_reuse_rx_ok(struct page *page)
-{
-        /* avoid re-using remote pages */
-        if (!dev_page_is_reusable(page)) {
-                //printk(KERN_INFO "r8127 page pfmemalloc, can't reuse!\n");
-                return false;
-        }
-        /* if we are only owner of page we can reuse it */
-        if (unlikely(page_ref_count(page) != 1)) {
-                //printk(KERN_INFO "r8127 page refcnt %d, can't reuse!\n", page_ref_count(page));
-                return false;
-        }
-
-        return true;
-}
-
-static void
-rtl8127_reuse_rx_buffer(struct rtl8127_private *tp, struct rtl8127_rx_ring *ring, u32 cur_rx, struct rtl8127_rx_buffer *rxb)
-{
-        struct page *page = rxb->page;
-
-        u32 dirty_rx = ring->dirty_rx;
-        u32 entry = dirty_rx % ring->num_rx_desc;
-        struct rtl8127_rx_buffer *nrxb = &ring->rx_buffer[entry];
-
-        u32 noffset;
-
-        //the page gonna be shared by us and kernel, keep page ref = 2
-        page_ref_inc(page);
-
-        //flip the buffer in page to use next
-        noffset = rxb->page_offset ^ (tp->rx_buf_page_size / 2); //one page, two buffer, ping-pong
-
-        nrxb->dma = rxb->dma;
-        nrxb->page_offset = noffset;
-        nrxb->data = rxb->data;
-
-        if (cur_rx != dirty_rx) {
-                //move the buffer to other slot
-                nrxb->page = page;
-                rxb->page = NULL;
-        }
-}
-
-static void rtl8127_put_rx_buffer(struct rtl8127_private *tp,
-                                  struct rtl8127_rx_ring *ring,
-                                  u32 cur_rx,
-                                  struct rtl8127_rx_buffer *rxb)
-{
-        struct rtl8127_rx_buffer *nrxb;
-        struct page *page = rxb->page;
-        u32 entry;
-
-        entry = ring->dirty_rx % ring->num_rx_desc;
-        nrxb = &ring->rx_buffer[entry];
-        if (likely(rtl8127_reuse_rx_ok(page))) {
-                /* hand second half of page back to the ring */
-                rtl8127_reuse_rx_buffer(tp, ring, cur_rx, rxb);
-        } else {
-                tp->page_reuse_fail_cnt++;
-
-                dma_unmap_page_attrs(&tp->pci_dev->dev, rxb->dma,
-                                     tp->rx_buf_page_size,
-                                     DMA_FROM_DEVICE,
-                                     (DMA_ATTR_SKIP_CPU_SYNC | DMA_ATTR_WEAK_ORDERING));
-                //the page ref is kept 1, uniquely owned by kernel now
-                rxb->page = NULL;
-
-                return;
-        }
-
-        dma_sync_single_range_for_device(tp_to_dev(tp),
-                                         nrxb->dma,
-                                         nrxb->page_offset,
-                                         tp->rx_buf_sz,
-                                         DMA_FROM_DEVICE);
-
-        rtl8127_map_to_asic(tp, ring,
-                            rtl8127_get_rxdesc(tp, ring->RxDescArray, entry),
-                            nrxb->dma + nrxb->page_offset,
-                            tp->rx_buf_sz, entry);
-
-        ring->dirty_rx++;
-}
-
-#endif //ENABLE_PAGE_REUSE
-
 static int
 rtl8127_rx_interrupt(struct net_device *dev,
                      struct rtl8127_private *tp,
@@ -9997,11 +9783,7 @@ rtl8127_rx_interrupt(struct net_device *dev,
         u32 status;
         u32 rx_quota;
         u32 ring_index = ring->index;
-#ifdef ENABLE_PAGE_REUSE
-        struct rtl8127_rx_buffer *rxb;
-#else //ENABLE_PAGE_REUSE
         u64 rx_buf_phy_addr;
-#endif //ENABLE_PAGE_REUSE
         unsigned int total_rx_multicast_packets = 0;
         unsigned int total_rx_bytes = 0, total_rx_packets = 0;
 
@@ -10017,9 +9799,7 @@ rtl8127_rx_interrupt(struct net_device *dev,
         rx_left = rtl8127_rx_quota(rx_left, (u32)rx_quota);
 
         for (; rx_left > 0; rx_left--, cur_rx++) {
-#ifndef ENABLE_PAGE_REUSE
                 const void *rx_buf;
-#endif //!ENABLE_PAGE_REUSE
                 u32 pkt_size;
 
                 entry = cur_rx % ring->num_rx_desc;
@@ -10081,7 +9861,6 @@ rtl8127_rx_interrupt(struct net_device *dev,
                 if (unlikely(pkt_size > tp->rx_buf_sz))
                         goto drop_packet;
 
-#if !defined(ENABLE_RX_PACKET_FRAGMENT) || !defined(ENABLE_PAGE_REUSE)
                 /*
                  * The driver does not support incoming fragmented
                  * frames. They are seen as a symptom of over-mtu
@@ -10089,38 +9868,7 @@ rtl8127_rx_interrupt(struct net_device *dev,
                  */
                 if (unlikely(rtl8127_fragmented_frame(tp, status)))
                         goto drop_packet;
-#endif //!ENABLE_RX_PACKET_FRAGMENT || !ENABLE_PAGE_REUSE
 
-#ifdef ENABLE_PAGE_REUSE
-                rxb = &ring->rx_buffer[entry];
-                skb = rxb->skb;
-                rxb->skb = NULL;
-                if (!skb) {
-                        skb = RTL_BUILD_SKB_INTR(rxb->data + rxb->page_offset - ring->rx_offset, tp->rx_buf_page_size / 2);
-                        if (!skb) {
-                                goto drop_packet;
-                        }
-
-                        skb->dev = dev;
-                        if (!R8127_USE_NAPI_ALLOC_SKB)
-                                skb_reserve(skb, R8127_RX_ALIGN);
-                        skb_put(skb, pkt_size);
-#ifdef ENABLE_RSS_SUPPORT
-                        rtl8127_rx_hash(tp, desc, skb);
-#endif
-                        rtl8127_rx_csum(tp, skb, desc);
-                } else
-                        skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, rxb->page,
-                                        rxb->page_offset, pkt_size, tp->rx_buf_page_size / 2);
-                //recycle desc
-                rtl8127_put_rx_buffer(tp, ring, cur_rx, rxb);
-
-                dma_sync_single_range_for_cpu(tp_to_dev(tp),
-                                              rxb->dma,
-                                              rxb->page_offset,
-                                              tp->rx_buf_sz,
-                                              DMA_FROM_DEVICE);
-#else //ENABLE_PAGE_REUSE
                 skb = RTL_ALLOC_SKB_INTR(&tp->r8127napi[ring->index].napi, pkt_size + R8127_RX_ALIGN);
                 if (!skb) {
                         goto drop_packet;
@@ -10141,7 +9889,6 @@ rtl8127_rx_interrupt(struct net_device *dev,
 
                 dma_sync_single_for_device(tp_to_dev(tp), rx_buf_phy_addr,
                                            tp->rx_buf_sz, DMA_FROM_DEVICE);
-#endif //ENABLE_PAGE_REUSE
 
 #ifdef ENABLE_PTP_SUPPORT
                 if (tp->flags & RTL_FLAG_RX_HWTSTAMP_ENABLED)
@@ -10158,12 +9905,10 @@ rtl8127_rx_interrupt(struct net_device *dev,
                 }
 #endif //ENABLE_RX_PACKET_FRAGMENT
 
-#ifndef ENABLE_PAGE_REUSE
 #ifdef ENABLE_RSS_SUPPORT
                 rtl8127_rx_hash(tp, desc, skb);
 #endif
                 rtl8127_rx_csum(tp, skb, desc);
-#endif /* !ENABLE_PAGE_REUSE */
 
                 skb->protocol = eth_type_trans(skb, dev);
 
@@ -10176,11 +9921,6 @@ rtl8127_rx_interrupt(struct net_device *dev,
                         rtl8127_rx_skb(tp, skb, ring_index);
 
                 total_rx_packets++;
-
-#ifdef ENABLE_PAGE_REUSE
-                rxb->skb = NULL;
-                continue;
-#endif
 
 release_descriptor:
                 switch (tp->InitRxDescType) {

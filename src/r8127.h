@@ -1677,12 +1677,7 @@ struct rtl8127_rx_ring {
         u32 RxDescAllocSize;
         u64 RxDescPhyAddr[MAX_NUM_RX_DESC]; /* Rx desc physical address*/
         dma_addr_t RxPhyAddr;
-#ifdef ENABLE_PAGE_REUSE
-        struct rtl8127_rx_buffer rx_buffer[MAX_NUM_RX_DESC];
-        u16 rx_offset;
-#else
         struct sk_buff *Rx_skbuff[MAX_NUM_RX_DESC]; /* Rx data buffers */
-#endif //ENABLE_PAGE_REUSE
 
         u16 rdsar_reg; /* Receive Descriptor Start Address */
 };
@@ -1956,11 +1951,6 @@ struct rtl8127_private {
         //struct sk_buff *Rx_skbuff[MAX_NUM_RX_DESC]; /* Rx data buffers */
         //struct ring_info tx_skb[MAX_NUM_TX_DESC];   /* Tx data buffers */
         unsigned rx_buf_sz;
-#ifdef ENABLE_PAGE_REUSE
-        unsigned rx_buf_page_order;
-        unsigned rx_buf_page_size;
-        u32 page_reuse_fail_cnt;
-#endif //ENABLE_PAGE_REUSE
         u16 HwSuppNumTxQueues;
         u16 HwSuppNumRxQueues;
         unsigned int num_tx_rings;
