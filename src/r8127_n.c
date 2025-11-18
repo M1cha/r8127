@@ -1907,11 +1907,6 @@ rtl8127_link_on_patch(struct net_device *dev)
         tp->phy_reg_gbsr = rtl8127_mdio_read(tp, MII_STAT1000);
         tp->phy_reg_status_2500 = rtl8127_mdio_direct_read_phy_ocp(tp, 0xA5D6);
         r8127_spin_unlock(&tp->phy_lock, flags);
-
-#ifdef ENABLE_PTP_SUPPORT
-        if (tp->EnablePtp)
-                rtl8127_set_local_time(tp);
-#endif // ENABLE_PTP_SUPPORT
 }
 
 static void
@@ -4054,11 +4049,7 @@ static const struct ethtool_ops rtl8127_ethtool_ops = {
         .get_ethtool_stats  = rtl8127_get_ethtool_stats,
         .get_eeprom     = rtl_get_eeprom,
         .get_eeprom_len     = rtl_get_eeprom_len,
-#ifdef ENABLE_PTP_SUPPORT
-        .get_ts_info        = rtl8127_get_ts_info,
-#else
         .get_ts_info        = ethtool_op_get_ts_info,
-#endif //ENABLE_PTP_SUPPORT
         .get_eee = rtl_ethtool_get_eee,
         .set_eee = rtl_ethtool_set_eee,
         .get_channels		= rtl8127_get_channels,
@@ -5742,10 +5733,6 @@ rtl8127_init_software_variable(struct net_device *dev)
         rtl8127_set_ring_size(tp, NUM_RX_DESC, NUM_TX_DESC);
 
         tp->HwSuppPtpVer = 2;
-#ifdef ENABLE_PTP_SUPPORT
-        if (tp->HwSuppPtpVer > 0)
-                tp->EnablePtp = 1;
-#endif
 
         tp->HwSuppIntMitiVer = 6;
 
@@ -6665,16 +6652,6 @@ rtl8127_do_ioctl(struct net_device *dev,
 #ifdef ETHTOOL_OPS_COMPAT
         case SIOCETHTOOL:
                 ret = ethtool_ioctl(ifr);
-                break;
-#endif
-
-#ifdef ENABLE_PTP_SUPPORT
-        case SIOCSHWTSTAMP:
-        case SIOCGHWTSTAMP:
-                if (tp->EnablePtp)
-                        ret = rtl8127_ptp_ioctl(dev, ifr, cmd);
-                else
-                        ret = -EOPNOTSUPP;
                 break;
 #endif
 
@@ -7749,10 +7726,6 @@ int rtl8127_open(struct net_device *dev)
 
         rtl8127_up(dev);
 
-#ifdef ENABLE_PTP_SUPPORT
-        if (tp->EnablePtp)
-                rtl8127_ptp_init(tp);
-#endif
         clear_bit(R8127_FLAG_DOWN, tp->task_flags);
 
         if (tp->resume_not_chg_speed)
@@ -8747,10 +8720,6 @@ static void rtl8127_reset_task(struct work_struct *work)
                 }
         }
 
-#ifdef ENABLE_PTP_SUPPORT
-        rtl8127_ptp_reset(tp);
-#endif
-
         rtl8127_enable_napi(tp);
 
         if (tp->resume_not_chg_speed) {
@@ -9287,21 +9256,6 @@ rtl8127_start_xmit(struct sk_buff *skb,
                 goto err_dma_1;
         }
 
-#ifdef ENABLE_PTP_SUPPORT
-        if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
-                if (!test_and_set_bit_lock(__RTL8127_PTP_TX_IN_PROGRESS, &tp->state)) {
-                        if (tp->hwtstamp_config.tx_type == HWTSTAMP_TX_ON &&
-                            !tp->ptp_tx_skb) {
-                                skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
-
-                                tp->ptp_tx_skb = skb_get(skb);
-                                tp->ptp_tx_start = jiffies;
-                                schedule_work(&tp->ptp_tx_work);
-                        } else
-                                tp->tx_hwtstamp_skipped++;
-                }
-        }
-#endif
         /* set first fragment's length */
         ring->tx_skb[entry].len = len;
 
@@ -9771,11 +9725,6 @@ rtl8127_rx_interrupt(struct net_device *dev,
                 dma_sync_single_for_device(tp_to_dev(tp), rx_buf_phy_addr,
                                            tp->rx_buf_sz, DMA_FROM_DEVICE);
 
-#ifdef ENABLE_PTP_SUPPORT
-                if (tp->flags & RTL_FLAG_RX_HWTSTAMP_ENABLED)
-                        rtl8127_rx_ptp_timestamp(tp, skb);
-#endif // ENABLE_PTP_SUPPORT
-
                 rtl8127_rx_csum(tp, skb, desc);
 
                 skb->protocol = eth_type_trans(skb, dev);
@@ -10011,9 +9960,6 @@ int rtl8127_close(struct net_device *dev)
 
                 pci_clear_master(tp->pci_dev);
 
-#ifdef ENABLE_PTP_SUPPORT
-                rtl8127_ptp_stop(tp);
-#endif
                 rtl8127_hw_d3_para(dev);
 
                 rtl8127_powerdown_pll(dev, 0);
@@ -10081,9 +10027,6 @@ rtl8127_suspend(struct device *device)
 
         netif_device_detach(dev);
 
-#ifdef ENABLE_PTP_SUPPORT
-        rtl8127_ptp_suspend(tp);
-#endif
         rtl8127_hw_reset(dev);
 
         pci_clear_master(pdev);

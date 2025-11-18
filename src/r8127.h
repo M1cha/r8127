@@ -44,9 +44,6 @@
 #include "r8127_dash.h"
 #include "r8127_realwow.h"
 #include "r8127_fiber.h"
-#ifdef ENABLE_PTP_SUPPORT
-#include "r8127_ptp.h"
-#endif
 
 #ifndef fallthrough
 #define fallthrough
@@ -204,11 +201,7 @@
 #define DASH_SUFFIX ""
 #endif
 
-#if defined(ENABLE_PTP_SUPPORT)
-#define PTP_SUFFIX "-PTP"
-#else
 #define PTP_SUFFIX ""
-#endif
 
 #define RSS_SUFFIX ""
 
@@ -2129,19 +2122,6 @@ struct rtl8127_private {
 
         u8 HwSuppPtpVer;
         u8 EnablePtp;
-#ifdef ENABLE_PTP_SUPPORT
-        u32 tx_hwtstamp_timeouts;
-        u32 tx_hwtstamp_skipped;
-        struct work_struct ptp_tx_work;
-        struct sk_buff *ptp_tx_skb;
-        struct hwtstamp_config hwtstamp_config;
-        unsigned long ptp_tx_start;
-        struct ptp_clock_info ptp_clock_info;
-        struct ptp_clock *ptp_clock;
-        u8 syncE_en;
-        u8 pps_enable;
-        struct hrtimer pps_timer;
-#endif
 
         u8 HwSuppRssVer;
         u8 EnableRss;
