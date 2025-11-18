@@ -5732,9 +5732,6 @@ rtl8127_init_software_variable(struct net_device *dev)
         }
 
         tp->num_tx_rings = 1;
-#ifdef ENABLE_MULTIPLE_TX_QUEUE
-        tp->num_tx_rings = tp->HwSuppNumTxQueues;
-#endif
         if (tp->HwCurrIsrVer < 2 ||
             (tp->HwCurrIsrVer == 2 && tp->irq_nvecs < 19))
                 tp->num_tx_rings = 1;
@@ -9553,26 +9550,14 @@ rtl8127_tx_interrupt_with_vector(struct rtl8127_private *tp,
         case 5:
                 if (message_id == 16)
                         count += rtl8127_tx_interrupt(&tp->tx_ring[0], budget);
-#ifdef ENABLE_MULTIPLE_TX_QUEUE
-                else if (message_id == 17 && tp->num_tx_rings > 1)
-                        count += rtl8127_tx_interrupt(&tp->tx_ring[1], budget);
-#endif
                 break;
         case 6:
                 if (message_id == 8)
                         count += rtl8127_tx_interrupt(&tp->tx_ring[0], budget);
-#ifdef ENABLE_MULTIPLE_TX_QUEUE
-                else if (message_id == 9 && tp->num_tx_rings > 1)
-                        count += rtl8127_tx_interrupt(&tp->tx_ring[1], budget);
-#endif
                 break;
         default:
                 if (message_id == 16)
                         count += rtl8127_tx_interrupt(&tp->tx_ring[0], budget);
-#ifdef ENABLE_MULTIPLE_TX_QUEUE
-                else if (message_id == 18 && tp->num_tx_rings > 1)
-                        count += rtl8127_tx_interrupt(&tp->tx_ring[1], budget);
-#endif
                 break;
         }
 
