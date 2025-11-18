@@ -224,13 +224,6 @@ MODULE_LICENSE("GPL");
 
 MODULE_VERSION(RTL8127_VERSION);
 
-/*
-static void rtl8127_esd_timer(struct timer_list *t);
-*/
-/*
-static void rtl8127_link_timer(struct timer_list *t);
-*/
-
 static netdev_tx_t rtl8127_start_xmit(struct sk_buff *skb, struct net_device *dev);
 static irqreturn_t rtl8127_interrupt(int irq, void *dev_instance);
 static irqreturn_t rtl8127_interrupt_msix(int irq, void *dev_instance);
@@ -434,20 +427,6 @@ void rtl8127_mdio_direct_write_phy_ocp(struct rtl8127_private *tp,
         mdio_real_direct_write_phy_ocp(tp, RegAddr, value);
 }
 
-/*
-static void rtl8127_mdio_write_phy_ocp(struct rtl8127_private *tp,
-                                       u16 PageNum,
-                                       u32 RegAddr,
-                                       u32 value)
-{
-        u16 ocp_addr;
-
-        ocp_addr = map_phy_ocp_addr(PageNum, RegAddr);
-
-        rtl8127_mdio_direct_write_phy_ocp(tp, ocp_addr, value);
-}
-*/
-
 static void rtl8127_mdio_real_write_phy_ocp(struct rtl8127_private *tp,
                 u16 PageNum,
                 u32 RegAddr,
@@ -525,19 +504,6 @@ u32 rtl8127_mdio_direct_read_phy_ocp(struct rtl8127_private *tp,
 
         return mdio_real_direct_read_phy_ocp(tp, RegAddr);
 }
-
-/*
-static u32 rtl8127_mdio_read_phy_ocp(struct rtl8127_private *tp,
-                                     u16 PageNum,
-                                     u32 RegAddr)
-{
-        u16 ocp_addr;
-
-        ocp_addr = map_phy_ocp_addr(PageNum, RegAddr);
-
-        return rtl8127_mdio_direct_read_phy_ocp(tp, ocp_addr);
-}
-*/
 
 static u32 rtl8127_mdio_real_read_phy_ocp(struct rtl8127_private *tp,
                 u16 PageNum,
@@ -985,34 +951,6 @@ u16 rtl8127_ephy_read(struct rtl8127_private *tp, int addr)
 {
         return  _rtl8127_ephy_read(tp, rtl8127_check_ephy_ext_addr(tp, addr));
 }
-
-/*
-static void ClearAndSetPCIePhyBit(struct rtl8127_private *tp, u8 addr, u16 clearmask, u16 setmask)
-{
-        u16 EphyValue;
-
-        EphyValue = rtl8127_ephy_read(tp, addr);
-        EphyValue &= ~clearmask;
-        EphyValue |= setmask;
-        rtl8127_ephy_write(tp, addr, EphyValue);
-}
-
-static void ClearPCIePhyBit(struct rtl8127_private *tp, u8 addr, u16 mask)
-{
-        ClearAndSetPCIePhyBit(tp,
-                              addr,
-                              mask,
-                              0);
-}
-
-static void SetPCIePhyBit(struct rtl8127_private *tp, u8 addr, u16 mask)
-{
-        ClearAndSetPCIePhyBit(tp,
-                              addr,
-                              0,
-                              mask);
-}
-*/
 
 static u32
 rtl8127_csi_other_fun_read(struct rtl8127_private *tp,
@@ -4072,18 +4010,6 @@ rtl_ethtool_set_eee(struct net_device *net, struct ethtool_keee *edata)
                 goto out;
         }
 
-        /*
-        if (edata->tx_lpi_enabled) {
-        if (edata->tx_lpi_timer > tp->max_jumbo_frame_size ||
-            edata->tx_lpi_timer < ETH_MIN_MTU) {
-                dev_printk(KERN_WARNING, tp_to_dev(tp), "Valid LPI timer range is %d to %d. \n",
-                           ETH_MIN_MTU, tp->max_jumbo_frame_size);
-                rc = -EINVAL;
-                goto out;
-        }
-        }
-        */
-
         rtl8127_adv_to_linkmode(advertising, tp->advertising);
         if (linkmode_empty(edata->advertised)) {
                 linkmode_and(edata->advertised, advertising, eee->supported);
@@ -4099,12 +4025,7 @@ rtl_ethtool_set_eee(struct net_device *net, struct ethtool_keee *edata)
                 goto out;
         }
 
-        //tp->eee.eee_enabled = edata->eee_enabled;
-        //tp->eee_adv_t = rtl8127_ethtool_adv_to_mmd_eee_adv_cap1_t(edata->advertised);
-
         linkmode_copy(eee->advertised, edata->advertised);
-        //eee->tx_lpi_enabled = edata->tx_lpi_enabled;
-        //eee->tx_lpi_timer = edata->tx_lpi_timer;
         eee->eee_enabled = edata->eee_enabled;
 
         if (eee->eee_enabled)
@@ -5574,37 +5495,6 @@ rtl8127_up(struct net_device *dev)
         rtl8127_hw_phy_config(dev);
         rtl8127_hw_config(dev);
 }
-
-/*
-static inline void rtl8127_delete_esd_timer(struct net_device *dev, struct timer_list *timer)
-{
-        del_timer_sync(timer);
-}
-
-static inline void rtl8127_request_esd_timer(struct net_device *dev)
-{
-        struct rtl8127_private *tp = netdev_priv(dev);
-        struct timer_list *timer = &tp->esd_timer;
-        timer_setup(timer, rtl8127_esd_timer, 0);
-        mod_timer(timer, jiffies + RTL8127_ESD_TIMEOUT);
-}
-*/
-
-/*
-static inline void rtl8127_delete_link_timer(struct net_device *dev, struct timer_list *timer)
-{
-        del_timer_sync(timer);
-}
-
-static inline void rtl8127_request_link_timer(struct net_device *dev)
-{
-        struct rtl8127_private *tp = netdev_priv(dev);
-        struct timer_list *timer = &tp->link_timer;
-
-        timer_setup(timer, rtl8127_link_timer, 0);
-        mod_timer(timer, jiffies + RTL8127_LINK_TIMEOUT);
-}
-*/
 
 #ifdef CONFIG_NET_POLL_CONTROLLER
 /*
@@ -7184,59 +7074,6 @@ rtl8127_esd_checker(struct rtl8127_private *tp)
 exit:
         return;
 }
-/*
-static void
-rtl8127_esd_timer(struct timer_list *t)
-{
-        struct rtl8127_private *tp = from_timer(tp, t, esd_timer);
-        //struct net_device *dev = tp->dev;
-        struct timer_list *timer = t;
-        rtl8127_esd_checker(tp);
-
-        mod_timer(timer, jiffies + timeout);
-}
-*/
-
-/*
-static void
-rtl8127_link_timer(struct timer_list *t)
-{
-        struct rtl8127_private *tp = from_timer(tp, t, link_timer);
-        struct net_device *dev = tp->dev;
-        struct timer_list *timer = t;
-        rtl8127_check_link_status(dev);
-
-        mod_timer(timer, jiffies + RTL8127_LINK_TIMEOUT);
-}
-*/
-
-static int rtl8127_enable_msix(struct rtl8127_private *tp)
-{
-        int i, nvecs = 0;
-        struct msix_entry msix_ent[R8127_MAX_MSIX_VEC];
-        //struct net_device *dev = tp->dev;
-        //const int len = sizeof(tp->irq_tbl[0].name);
-
-        for (i = 0; i < R8127_MAX_MSIX_VEC; i++) {
-                msix_ent[i].entry = i;
-                msix_ent[i].vector = 0;
-        }
-
-        nvecs = pci_enable_msix_range(tp->pci_dev, msix_ent,
-                                      tp->min_irq_nvecs, tp->max_irq_nvecs);
-        if (nvecs < 0)
-                goto out;
-
-        for (i = 0; i < nvecs; i++) {
-                struct r8127_irq *irq = &tp->irq_tbl[i];
-                irq->vector = msix_ent[i].vector;
-                //snprintf(irq->name, len, "%s-%d", dev->name, i);
-                //irq->handler = rtl8127_interrupt_msix;
-        }
-
-out:
-        return nvecs;
-}
 
 /* Cfg9346_Unlock assumed. */
 static int rtl8127_try_msi(struct rtl8127_private *tp)
@@ -8013,12 +7850,8 @@ int rtl8127_open(struct net_device *dev)
                 rtl8127_set_speed(dev, tp->autoneg, tp->speed, tp->duplex, tp->advertising);
 
         if (tp->esd_flag == 0) {
-                //rtl8127_request_esd_timer(dev);
-
                 rtl8127_schedule_esd_work(tp);
         }
-
-        //rtl8127_request_link_timer(dev);
 
         rtl8127_enable_hw_linkchg_interrupt(tp);
 
@@ -8337,7 +8170,6 @@ rtl8127_hw_config(struct net_device *dev)
         mac_ocp_data |= 0x45F;
         rtl8127_mac_ocp_write(tp, 0xD430, mac_ocp_data);
 
-        //rtl8127_mac_ocp_write(tp, 0xE0C0, 0x4F87);
         if (!tp->DASH)
                 RTL_W8(tp, 0xD0, RTL_R8(tp, 0xD0) | BIT_6 | BIT_7);
         else
@@ -8487,9 +8319,6 @@ rtl8127_change_mtu(struct net_device *dev,
                 rtl8127_link_on_patch(dev);
         else
                 rtl8127_link_down_patch(dev);
-
-        //mod_timer(&tp->esd_timer, jiffies + RTL8127_ESD_TIMEOUT);
-        //mod_timer(&tp->link_timer, jiffies + RTL8127_LINK_TIMEOUT);
 out:
         netdev_update_features(dev);
 
@@ -10013,37 +9842,6 @@ rtl8127_rx_csum(struct rtl8127_private *tp,
         }
 }
 
-/*
-static inline int
-rtl8127_try_rx_copy(struct rtl8127_private *tp,
-                    struct rtl8127_rx_ring *ring,
-                    struct sk_buff **sk_buff,
-                    int pkt_size,
-                    struct RxDesc *desc,
-                    int rx_buf_sz)
-{
-        int ret = -1;
-
-        struct sk_buff *skb;
-
-        skb = RTL_ALLOC_SKB_INTR(&tp->r8127napi[ring->index].napi, pkt_size + R8127_RX_ALIGN);
-        if (skb) {
-                u8 *data;
-
-                data = sk_buff[0]->data;
-                if (!R8127_USE_NAPI_ALLOC_SKB)
-                    skb_reserve(skb, R8127_RX_ALIGN);
-                prefetch(data - R8127_RX_ALIGN);
-                eth_copy_and_sum(skb, data, pkt_size, 0);
-                *sk_buff = skb;
-                rtl8127_mark_to_asic(tp, desc, rx_buf_sz);
-                ret = 0;
-        }
-
-        return ret;
-}
-*/
-
 static inline void
 rtl8127_rx_skb(struct rtl8127_private *tp,
                struct sk_buff *skb,
@@ -10300,7 +10098,6 @@ rtl8127_rx_interrupt(struct net_device *dev,
                 if (!skb) {
                         skb = RTL_BUILD_SKB_INTR(rxb->data + rxb->page_offset - ring->rx_offset, tp->rx_buf_page_size / 2);
                         if (!skb) {
-                                //netdev_err(tp->dev, "Failed to allocate RX skb!\n");
                                 goto drop_packet;
                         }
 
@@ -10326,7 +10123,6 @@ rtl8127_rx_interrupt(struct net_device *dev,
 #else //ENABLE_PAGE_REUSE
                 skb = RTL_ALLOC_SKB_INTR(&tp->r8127napi[ring->index].napi, pkt_size + R8127_RX_ALIGN);
                 if (!skb) {
-                        //netdev_err(tp->dev, "Failed to allocate RX skb!\n");
                         goto drop_packet;
                 }
 
@@ -10568,10 +10364,6 @@ static void rtl8127_down(struct net_device *dev)
 {
         struct rtl8127_private *tp = netdev_priv(dev);
 
-        //rtl8127_delete_esd_timer(dev, &tp->esd_timer);
-
-        //rtl8127_delete_link_timer(dev, &tp->link_timer);
-
         netif_carrier_off(dev);
 
         netif_tx_disable(dev);
@@ -10775,8 +10567,6 @@ rtl8127_resume(struct device *device)
 
         rtl8127_schedule_esd_work(tp);
 
-        //mod_timer(&tp->esd_timer, jiffies + RTL8127_ESD_TIMEOUT);
-        //mod_timer(&tp->link_timer, jiffies + RTL8127_LINK_TIMEOUT);
 out_unlock:
         netif_device_attach(dev);
 
