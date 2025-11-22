@@ -131,7 +131,8 @@ ifneq ($(KERNELRELEASE),)
 	# Backward compatibility
 	ccflags-y  += $(EXTRA_CFLAGS)
 else
-	BASEDIR := /lib/modules/$(shell uname -r)
+	KVER ?= $(shell uname -r)
+	BASEDIR := /lib/modules/$(KVER)
 	KERNELDIR ?= $(BASEDIR)/build
 	PWD :=$(shell pwd)
 	DRIVERDIR := $(shell find $(BASEDIR)/kernel/drivers/net/ethernet -name realtek -type d)
@@ -146,7 +147,6 @@ else
 	KERNEL_GCC_VERSION := $(shell cat /proc/version | sed -n 's/.*gcc version \([[:digit:]]\.[[:digit:]]\.[[:digit:]]\).*/\1/p')
 	CCVERSION = $(shell $(CC) -dumpversion)
 
-	KVER = $(shell uname -r)
 	KMAJ = $(shell echo $(KVER) | \
 	sed -e 's/^\([0-9][0-9]*\)\.[0-9][0-9]*\.[0-9][0-9]*.*/\1/')
 	KMIN = $(shell echo $(KVER) | \
