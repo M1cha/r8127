@@ -51,6 +51,7 @@ ENABLE_DOUBLE_VLAN = n
 ENABLE_PAGE_REUSE = n
 ENABLE_RX_PACKET_FRAGMENT = n
 ENABLE_GIGA_LITE = y
+EXTRA_ARGS ?=
 
 ifneq ($(KERNELRELEASE),)
 	obj-m := r8127.o
@@ -183,7 +184,7 @@ print_vars:
 .PHONY:modules
 modules:
 #ifeq ($(call kver_ge,5,0,0),1)
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) $(EXTRA_ARGS) modules
 #else
 #	$(MAKE) -C $(KERNELDIR) SUBDIRS=$(PWD) modules
 #endif
@@ -191,7 +192,7 @@ modules:
 .PHONY:clean
 clean:
 #ifeq ($(call kver_ge,5,0,0),1)
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) $(EXTRA_ARGS) clean
 #else
 #	$(MAKE) -C $(KERNELDIR) SUBDIRS=$(PWD) clean
 #endif
@@ -199,7 +200,7 @@ clean:
 .PHONY:install
 install:
 #ifeq ($(call kver_ge,5,0,0),1)
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) INSTALL_MOD_DIR=$(RTKDIR) modules_install
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) INSTALL_MOD_DIR=$(RTKDIR) $(EXTRA_ARGS) modules_install
 #else
 #	$(MAKE) -C $(KERNELDIR) SUBDIRS=$(PWD) INSTALL_MOD_DIR=$(RTKDIR) modules_install
 #endif
