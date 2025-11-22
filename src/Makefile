@@ -53,7 +53,7 @@ ENABLE_RX_PACKET_FRAGMENT = n
 ENABLE_GIGA_LITE = y
 EXTRA_ARGS ?=
 
-ifneq ($(KERNELRELEASE),)
+ifneq ($(KERNELVERSION),)
 	obj-m := r8127.o
 	r8127-objs := r8127_n.o rtl_eeprom.o rtltool.o r8127_fiber.o
 	ifeq ($(CONFIG_SOC_LAN), y)
